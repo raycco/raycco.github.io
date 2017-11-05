@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Raycco&#39;s Notes</title>
+  
+  <subtitle>Quick Notes</subtitle>
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="http://yoursite.com/"/>
+  <updated>2017-11-05T10:01:15.081Z</updated>
+  <id>http://yoursite.com/</id>
+  
+  <author>
+    <name>Raycco</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>GitHub搭建个人的博客</title>
+    <link href="http://yoursite.com/2017/10/30/GitHub%E6%90%AD%E5%BB%BA%E8%87%AA%E5%B7%B1%E7%9A%84%E5%8D%9A%E5%AE%A2/"/>
+    <id>http://yoursite.com/2017/10/30/GitHub搭建自己的博客/</id>
+    <published>2017-10-30T09:34:27.481Z</published>
+    <updated>2017-11-05T10:01:15.081Z</updated>
+    
+    <content type="html"><![CDATA[<p>本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。</p><h2 id="安装Node-js"><a href="#安装Node-js" class="headerlink" title="安装Node.js"></a>安装Node.js</h2><p>在nodejs官网下载对应的版本安装<br>下载地址：<a href="https://nodejs.org/en/download" target="_blank" rel="external">https://nodejs.org/en/download</a></p><h2 id="安装Git"><a href="#安装Git" class="headerlink" title="安装Git"></a>安装Git</h2><p>下载地址：<a href="https://git-for-windows.github.io" target="_blank" rel="external">https://git-for-windows.github.io</a></p><h2 id="创建GitHub账户"><a href="#创建GitHub账户" class="headerlink" title="创建GitHub账户"></a>创建GitHub账户</h2><p>进入GitHub主页<a href="https://github.com/" target="_blank" rel="external">https://github.com/</a>，依次输入用户名、邮箱、密码，然后点击注册，按默认点击“Finish sign up”。然后进行邮箱验证。</p><h2 id="创建GitHub仓库"><a href="#创建GitHub仓库" class="headerlink" title="创建GitHub仓库"></a>创建GitHub仓库</h2><p>点击“New repository”，新建一个仓库，仓库名为“[yourname].github.io”，这样<a href="https://[yourname].github.io" target="_blank" rel="external">https://[yourname].github.io</a> 就是你的博客地址了。默认这仓库只有master分支，新建一个hexo分支。</p><h2 id="配置Hexo"><a href="#配置Hexo" class="headerlink" title="配置Hexo"></a>配置Hexo</h2><p>接下来的命令都在Git Bash中执行。</p><p>在自己喜欢的位置新建一个blog文件夹，在这个文件夹下打开Git Bash，因为npm是国外服务器，可能执行比较慢，可以使用淘宝镜像，命令如下：</p><pre><code>$ npm install -g cnpm --registry=https://registry.npm.taobao.org</code></pre><p>执行成功后使用淘宝NPM安装Hexo</p><pre><code>$ cnpm install -g hexo-cli$ cnmp install hexo --save$ hexo -vhexo: 3.4.0hexo-cli: 1.0.4os: Windows_NT 6.1.7600 win32 ia32http_parser: 2.7.0node: 8.7.0v8: 6.1.534.42uv: 1.15.0zlib: 1.2.11ares: 1.10.1-DEVmodules: 57nghttp2: 1.25.0openssl: 1.0.2licu: 59.1unicode: 9.0cldr: 31.0.1tz: 2017b</code></pre><p>到这里hexo已经安装好了</p><h2 id="配置ssh-key"><a href="#配置ssh-key" class="headerlink" title="配置ssh key"></a>配置ssh key</h2><pre><code>ssh-keygen -t rsa -C &quot;Github的注册邮箱地址&quot;</code></pre><p>在C:\Users\yourname\.ssh下会得到密钥id_rsa和id_rsa.pub，用nodepad++打开id_rsa.pub复制全文，打开<a href="https://github.com/settings/ssh" target="_blank" rel="external">https://github.com/settings/ssh</a>，Add SSH key，粘贴进去保存。 </p><p>测试是否配置成功</p><pre><code>$ ssh -T git@github.comHi [yourname]! You&apos;ve successfully authenticated, but GitHub does not provide shell access.</code></pre><h2 id="配置git信息"><a href="#配置git信息" class="headerlink" title="配置git信息"></a>配置git信息</h2><pre><code>$ git config --global user.name &quot;你的用户名&quot;$ git config --global user.email &quot;你的邮箱&quot;</code></pre><h2 id="使用Hexo管理博客"><a href="#使用Hexo管理博客" class="headerlink" title="使用Hexo管理博客"></a>使用Hexo管理博客</h2><h3 id="初始化博客"><a href="#初始化博客" class="headerlink" title="初始化博客"></a>初始化博客</h3><pre><code>$ hexo init &lt;nodejs-hexo&gt; //初始化nodejs-hexo（文件夹名随意）$ git clone -b hexo https://github.com/[yourname]/[yourname].github.io</code></pre><p>将[yourname].github.io文件夹下的.git文件夹拷贝到nodejs-hexo文件夹。</p><pre><code>$ cnpm install //安装生成器$ hexo server //运行（Ctrl + C停止运行）</code></pre><p>在浏览器输入localhost:4000，这样就可以在本地看到博客了。</p><h3 id="配置博客"><a href="#配置博客" class="headerlink" title="配置博客"></a>配置博客</h3><p>_config.yml中配置基本信息</p><pre><code>title: #博客标题subtitle: #博客副标题description: #博客描述author: #博客作者language: zh-Hanstimezone: Asia/Shanghai</code></pre><p>_config.yml中配置主题</p><pre><code>theme: next</code></pre><p>_config.yml中配置部署</p><pre><code>deploy:  type: git  repo: https://github.com/[yourname]/[yourname].github.io  branch: master</code></pre><p>注意：这里的设置冒号后面必须有空格</p><h3 id="发布博客"><a href="#发布博客" class="headerlink" title="发布博客"></a>发布博客</h3><pre><code>$ hexo new &quot;博客名&quot; //增加新文章$ cnpm install hexo-deployer-git --save //安装hexo git插件$ git add .$ git commit -m &quot;message&quot;$ git push origin hexo$ hexo generate //生成静态文件$ hexo deploy   //部署</code></pre><h3 id="换PC管理博客"><a href="#换PC管理博客" class="headerlink" title="换PC管理博客"></a>换PC管理博客</h3><pre><code>$ git clone -b hexo https://github.com/[yourname]/[yourname].github.io</code></pre><p>在[yourname].github.io中从新安装hexo，就可以写博客及发布博客了。</p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;p&gt;本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。&lt;/p&gt;
+&lt;h2 id=&quot;安装Node-js&quot;&gt;&lt;a href=&quot;#安装Node-js&quot; class=&quot;headerlink&quot; title=&quot;安装Node.js&quot;&gt;&lt;/a&gt;安装Node.js&lt;/h2&gt;&lt;p
+      
+    
+    </summary>
+    
+      <category term="搭建博客" scheme="http://yoursite.com/categories/%E6%90%AD%E5%BB%BA%E5%8D%9A%E5%AE%A2/"/>
+    
+    
+      <category term="hexo" scheme="http://yoursite.com/tags/hexo/"/>
+    
+      <category term="github" scheme="http://yoursite.com/tags/github/"/>
+    
+  </entry>
+  
+</feed>
