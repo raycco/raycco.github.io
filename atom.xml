@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-11-05T10:01:15.081Z</updated>
+  <updated>2017-11-09T03:51:48.331Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -15,6 +15,32 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Android Audio Server启动</title>
+    <link href="http://yoursite.com/2017/11/08/Android-Audio-Server%E5%90%AF%E5%8A%A8/"/>
+    <id>http://yoursite.com/2017/11/08/Android-Audio-Server启动/</id>
+    <published>2017-11-08T02:44:20.000Z</published>
+    <updated>2017-11-09T03:51:48.331Z</updated>
+    
+    <content type="html"><![CDATA[<p>audioserver源代码的位置位于frameworks/av/media/audioserver</p><p>从Android 7.0开始，Audio相关的service从mediaserver中转移到audioserver，把audio，camera及mediaplayerservice做了一个拆分，这样不会显得臃肿、职能更加独立且安全性更高。拆分之后audioserver还是一个native service，还是从init进程中启动，如下是其在audioserver.rc中的启动代码。</p><figure class="highlight sh"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">service audioserver /system/bin/audioserver</div><div class="line">    class main                                   <span class="comment"># audioserver和class main行为一致</span></div><div class="line">    user audioserver                             <span class="comment"># 用户归属，uid：AID_AUDIOSERVER</span></div><div class="line">    <span class="comment"># media gid needed for /dev/fm (radio) and for /data/misc/media (tee)</span></div><div class="line">    group audio camera drmrpc inet media mediadrm net_bt \</div><div class="line">          net_bt_admin net_bw_acct oem_2901                         <span class="comment"># 用户组归属</span></div><div class="line">    ioprio rt 4                                                     <span class="comment"># io调度优先级</span></div><div class="line">    <span class="comment"># 当子进程被创建的时候，将子进程的pid写入到给定的文件中,cgroup/cpuset用法</span></div><div class="line">    writepid /dev/cpuset/foreground/tasks /dev/stune/foreground/tasks                </div><div class="line">    onrestart restart audio-hal-2-0                     <span class="comment"># audioserver重启会重启hal</span></div></pre></td></tr></table></figure><p>我们看到Android 8.0当重启audioserver时，会重启audio-hal-2-0，这个服务是audio hal的服务，在android 8.0中，framework native进程与hal分离，hal不在和framework native处于同一个进程，而是独立进程，进程间通过binder通信。先不讲HAL binder化，我们先看看audioserver中包含哪几个服务。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc __unused, <span class="keyword">char</span> **argv)</span></span></div><div class="line"><span class="function"></span>&#123;</div><div class="line">   signal(SIGPIPE, SIG_IGN);</div><div class="line"></div><div class="line">   <span class="keyword">bool</span> doLog = (<span class="keyword">bool</span>) property_get_bool(<span class="string">"ro.test_harness"</span>, <span class="number">0</span>);</div><div class="line"></div><div class="line">   <span class="keyword">pid_t</span> childPid;</div><div class="line"></div><div class="line">   ......</div><div class="line"></div><div class="line">   <span class="keyword">if</span> (doLog &amp;&amp; (childPid = fork()) != <span class="number">0</span>) &#123;</div><div class="line"></div><div class="line">      ......</div><div class="line"></div><div class="line">   &#125; <span class="keyword">else</span> &#123;</div><div class="line"></div><div class="line">      sp&lt;ProcessState&gt; proc(ProcessState::self());</div><div class="line">      sp&lt;IServiceManager&gt; sm = defaultServiceManager();</div><div class="line">      ALOGI(<span class="string">"ServiceManager: %p"</span>, sm.get());</div><div class="line">      AudioFlinger::instantiate();</div><div class="line">      AudioPolicyService::instantiate();</div><div class="line">      AAudioService::instantiate();</div><div class="line">      RadioService::instantiate();</div><div class="line">      SoundTriggerHwService::instantiate();</div><div class="line"></div><div class="line">      ProcessState::self()-&gt;startThreadPool();</div><div class="line"></div><div class="line"><span class="comment">// <span class="doctag">FIXME:</span> remove when BUG 31748996 is fixed</span></div><div class="line">      android::hardware::ProcessState::self()-&gt;startThreadPool();</div><div class="line"></div><div class="line">      IPCThreadState::self()-&gt;joinThreadPool();</div><div class="line">   &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p><p>从如上代码可以看出，audioserver中回依次实例化AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService并添加到ServiceManager中。</p><p>AudioFlinger：Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。</p><p>AudioPolicyService：音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。</p><p>AAudioService：这是Android 8.0加入角色，是OpenSL ES的另外一种选择，需要低延迟的高性能音频应用的另外一种选择。</p><p>RadioService：与FM相关的一个服务。</p><p>SoundTriggerHwService：Android语音识别的native服务。</p><p>参考：<br><a href="http://blog.csdn.net/fu_kevin0606/article/details/53383031" target="_blank" rel="external">http://blog.csdn.net/fu_kevin0606/article/details/53383031</a></p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;p&gt;audioserver源代码的位置位于frameworks/av/media/audioserver&lt;/p&gt;
+&lt;p&gt;从Android 7.0开始，Audio相关的service从mediaserver中转移到audioserver，把audio，camera及mediapl
+      
+    
+    </summary>
+    
+      <category term="Android Audio" scheme="http://yoursite.com/categories/Android-Audio/"/>
+    
+    
+      <category term="Android" scheme="http://yoursite.com/tags/Android/"/>
+    
+  </entry>
   
   <entry>
     <title>GitHub搭建个人的博客</title>
