@@ -81,18 +81,23 @@
 
 
 
-<meta name="description" content="Android audioserver是Audio系统native的服务，也是连接Audio Framework和Audio HAL的一个纽带，其中包含了AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService等服务。源代码位于frameworks/av/media/audioserver 从A">
+<meta name="description" content="AudioFlinger以media.audio_flinger为名注册到ServiceManager，是Android Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。本文以Android 8.0的代码为基础，记录了其启动过程以及AudioFlinger主要类的关系。其代码位于frameworks/av/services/audioflinger">
 <meta name="keywords" content="Android">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Android Audio Server启动">
-<meta property="og:url" content="http://yoursite.com/2017/11/08/Android-Audio-Server启动/index.html">
+<meta property="og:title" content="AudioFlinger启动过程">
+<meta property="og:url" content="http://yoursite.com/2017/11/09/AudioFlinger启动过程/index.html">
 <meta property="og:site_name" content="Raycco&#39;s Notes">
-<meta property="og:description" content="Android audioserver是Audio系统native的服务，也是连接Audio Framework和Audio HAL的一个纽带，其中包含了AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService等服务。源代码位于frameworks/av/media/audioserver 从A">
+<meta property="og:description" content="AudioFlinger以media.audio_flinger为名注册到ServiceManager，是Android Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。本文以Android 8.0的代码为基础，记录了其启动过程以及AudioFlinger主要类的关系。其代码位于frameworks/av/services/audioflinger">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2017-11-19T09:55:49.540Z">
+<meta property="og:image" content="https://i.imgur.com/urJudFp.png">
+<meta property="og:image" content="https://i.imgur.com/FiwGgwV.png">
+<meta property="og:image" content="https://i.imgur.com/HHP2bZp.png">
+<meta property="og:image" content="https://i.imgur.com/bIsUSZO.png">
+<meta property="og:updated_time" content="2017-11-21T12:16:09.589Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Android Audio Server启动">
-<meta name="twitter:description" content="Android audioserver是Audio系统native的服务，也是连接Audio Framework和Audio HAL的一个纽带，其中包含了AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService等服务。源代码位于frameworks/av/media/audioserver 从A">
+<meta name="twitter:title" content="AudioFlinger启动过程">
+<meta name="twitter:description" content="AudioFlinger以media.audio_flinger为名注册到ServiceManager，是Android Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。本文以Android 8.0的代码为基础，记录了其启动过程以及AudioFlinger主要类的关系。其代码位于frameworks/av/services/audioflinger">
+<meta name="twitter:image" content="https://i.imgur.com/urJudFp.png">
 
 
 
@@ -122,13 +127,13 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2017/11/08/Android-Audio-Server启动/"/>
+  <link rel="canonical" href="http://yoursite.com/2017/11/09/AudioFlinger启动过程/"/>
 
 
 
 
 
-  <title>Android Audio Server启动 | Raycco's Notes</title>
+  <title>AudioFlinger启动过程 | Raycco's Notes</title>
   
 
 
@@ -309,7 +314,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/11/08/Android-Audio-Server启动/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/11/09/AudioFlinger启动过程/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Raycco">
@@ -326,7 +331,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">Android Audio Server启动</h1>
+          <h1 class="post-title" itemprop="name headline">AudioFlinger启动过程</h1>
         
 
         <div class="post-meta">
@@ -338,8 +343,8 @@
               
                 <span class="post-meta-item-text">发表于</span>
               
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-08T10:44:20+08:00">
-                2017-11-08
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-09T15:58:02+08:00">
+                2017-11-09
               </time>
             
 
@@ -379,9 +384,9 @@
                 <span class="post-meta-item-icon">
                   <i class="fa fa-comment-o"></i>
                 </span>
-                <a href="/2017/11/08/Android-Audio-Server启动/#comments" itemprop="discussionUrl">
+                <a href="/2017/11/09/AudioFlinger启动过程/#comments" itemprop="discussionUrl">
                   <span class="post-comments-count disqus-comment-count"
-                        data-disqus-identifier="2017/11/08/Android-Audio-Server启动/" itemprop="commentCount"></span>
+                        data-disqus-identifier="2017/11/09/AudioFlinger启动过程/" itemprop="commentCount"></span>
                 </a>
               </span>
             
@@ -389,7 +394,7 @@
 
           
           
-             <span id="/2017/11/08/Android-Audio-Server启动/" class="leancloud_visitors" data-flag-title="Android Audio Server启动">
+             <span id="/2017/11/09/AudioFlinger启动过程/" class="leancloud_visitors" data-flag-title="AudioFlinger启动过程">
                <span class="post-meta-divider">|</span>
                <span class="post-meta-item-icon">
                  <i class="fa fa-eye"></i>
@@ -420,16 +425,26 @@
       
 
       
-        <p>Android audioserver是Audio系统native的服务，也是连接Audio Framework和Audio HAL的一个纽带，其中包含了AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService等服务。源代码位于frameworks/av/media/audioserver</p>
-<p>从Android 7.0开始，Audio相关的service从mediaserver中转移到audioserver，把audio，camera及mediaplayerservice做了一个拆分，这样不会显得臃肿、职能更加独立且安全性更高。拆分之后audioserver还是一个native service，还是从init进程中启动，如下是其在audioserver.rc中的启动代码。</p>
-<figure class="highlight sh"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">service audioserver /system/bin/audioserver</div><div class="line">    class main                                   <span class="comment"># audioserver和class main行为一致</span></div><div class="line">    user audioserver                             <span class="comment"># 用户归属，uid：AID_AUDIOSERVER</span></div><div class="line">    <span class="comment"># media gid needed for /dev/fm (radio) and for /data/misc/media (tee)</span></div><div class="line">    group audio camera drmrpc inet media mediadrm net_bt \</div><div class="line">          net_bt_admin net_bw_acct oem_2901                         <span class="comment"># 用户组归属</span></div><div class="line">    ioprio rt 4                                                     <span class="comment"># io调度优先级</span></div><div class="line">    <span class="comment"># 当子进程被创建的时候，将子进程的pid写入到给定的文件中,cgroup/cpuset用法</span></div><div class="line">    writepid /dev/cpuset/foreground/tasks /dev/stune/foreground/tasks                </div><div class="line">    onrestart restart audio-hal-2-0                     <span class="comment"># audioserver重启会重启hal</span></div></pre></td></tr></table></figure>
-<p>我们看到Android 8.0当重启audioserver时，会重启audio-hal-2-0，这个服务是audio hal的服务，在android 8.0中，framework native进程与hal分离，hal不在和framework native处于同一个进程，而是独立进程，进程间通过binder通信。先不讲HAL binder化，我们先看看audioserver中包含哪几个服务。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc __unused, <span class="keyword">char</span> **argv)</span></span></div><div class="line"><span class="function"></span>&#123;</div><div class="line">   signal(SIGPIPE, SIG_IGN);</div><div class="line"></div><div class="line">   <span class="keyword">bool</span> doLog = (<span class="keyword">bool</span>) property_get_bool(<span class="string">"ro.test_harness"</span>, <span class="number">0</span>);</div><div class="line"></div><div class="line">   <span class="keyword">pid_t</span> childPid;</div><div class="line"></div><div class="line">   ......</div><div class="line"></div><div class="line">   <span class="keyword">if</span> (doLog &amp;&amp; (childPid = fork()) != <span class="number">0</span>) &#123;</div><div class="line"></div><div class="line">      ......</div><div class="line"></div><div class="line">   &#125; <span class="keyword">else</span> &#123;</div><div class="line"></div><div class="line">      sp&lt;ProcessState&gt; proc(ProcessState::self());</div><div class="line">      sp&lt;IServiceManager&gt; sm = defaultServiceManager();</div><div class="line">      ALOGI(<span class="string">"ServiceManager: %p"</span>, sm.get());</div><div class="line">      AudioFlinger::instantiate();</div><div class="line">      AudioPolicyService::instantiate();</div><div class="line">      AAudioService::instantiate();</div><div class="line">      RadioService::instantiate();</div><div class="line">      SoundTriggerHwService::instantiate();</div><div class="line"></div><div class="line">      ProcessState::self()-&gt;startThreadPool();</div><div class="line"></div><div class="line"><span class="comment">// <span class="doctag">FIXME:</span> remove when BUG 31748996 is fixed</span></div><div class="line">      android::hardware::ProcessState::self()-&gt;startThreadPool();</div><div class="line"></div><div class="line">      IPCThreadState::self()-&gt;joinThreadPool();</div><div class="line">   &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
-<p>从如上代码可以看出，audioserver中回依次执行AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService的instantiate函数。通过阅读源代码，由于继承的缘故这个五个service最终会调用BinderService的instantiate函数且将自己注册到ServiceManager中，后续client端可以通过service注册时用的name从ServiceManager返回server端。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> SERVICE&gt;</div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">BinderService</span></span></div><div class="line"><span class="class">&#123;</span></div><div class="line"><span class="keyword">public</span>:</div><div class="line">    <span class="function"><span class="keyword">static</span> status_t <span class="title">publish</span><span class="params">(<span class="keyword">bool</span> allowIsolated = <span class="literal">false</span>)</span> </span>&#123;</div><div class="line">        sp&lt;IServiceManager&gt; sm(defaultServiceManager());</div><div class="line">        <span class="keyword">return</span> sm-&gt;addService(</div><div class="line">                String16(SERVICE::getServiceName()),</div><div class="line">                <span class="keyword">new</span> SERVICE(), allowIsolated);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">publishAndJoinThreadPool</span><span class="params">(<span class="keyword">bool</span> allowIsolated = <span class="literal">false</span>)</span> </span>&#123;</div><div class="line">        publish(allowIsolated);</div><div class="line">        joinThreadPool();</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">instantiate</span><span class="params">()</span> </span>&#123; publish(); &#125;</div><div class="line"></div><div class="line">    <span class="function"><span class="keyword">static</span> status_t <span class="title">shutdown</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> NO_ERROR; &#125;</div><div class="line"></div><div class="line"><span class="keyword">private</span>:</div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">joinThreadPool</span><span class="params">()</span> </span>&#123;</div><div class="line">        sp&lt;ProcessState&gt; ps(ProcessState::self());</div><div class="line">        ps-&gt;startThreadPool();</div><div class="line">        ps-&gt;giveThreadPoolName();</div><div class="line">        IPCThreadState::self()-&gt;joinThreadPool();</div><div class="line">    &#125;</div><div class="line">&#125;;</div></pre></td></tr></table></figure></p>
-<p>AudioFlinger（media.audio_flinger）：Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。</p>
-<p>AudioPolicyService（media.audio_policy）：音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。</p>
-<p>AAudioService（media.aaudio）：这是Android 8.0加入角色，是OpenSL ES的另外一种选择，需要低延迟的高性能音频应用的另外一种选择。</p>
-<p>RadioService（media.radio）：与FM相关的一个服务。</p>
-<p>SoundTriggerHwService（media.sound_trigger_hw）：Android语音识别的native服务。</p>
+        <p>AudioFlinger以media.audio_flinger为名注册到ServiceManager，是Android Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。本文以Android 8.0的代码为基础，记录了其启动过程以及AudioFlinger主要类的关系。其代码位于frameworks/av/services/audioflinger。</p>
+<h2 id="AudioFlinger的启动过程"><a href="#AudioFlinger的启动过程" class="headerlink" title="AudioFlinger的启动过程"></a>AudioFlinger的启动过程</h2><p>Android 8.0中与7.0相比，在初始化过程中，主要是实例化了mDevicesFactoryHal和mEffectsFactoryHal，作为HAL进程的客户端与HAL进程交互。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line">AudioFlinger::AudioFlinger()</div><div class="line">    <span class="comment">//变量初始化</span></div><div class="line">    : BnAudioFlinger(),</div><div class="line">      mMediaLogNotifier(<span class="keyword">new</span> AudioFlinger::MediaLogNotifier()),</div><div class="line">      mPrimaryHardwareDev(<span class="literal">NULL</span>),</div><div class="line">      mAudioHwDevs(<span class="literal">NULL</span>),</div><div class="line">      mHardwareStatus(AUDIO_HW_IDLE),</div><div class="line">      mMasterVolume(<span class="number">1.0f</span>),</div><div class="line">      mMasterMute(<span class="literal">false</span>),</div><div class="line">      <span class="comment">// mNextUniqueId(AUDIO_UNIQUE_ID_USE_MAX),</span></div><div class="line">      mMode(AUDIO_MODE_INVALID),</div><div class="line">      mBtNrecIsOff(<span class="literal">false</span>),</div><div class="line">      mIsLowRamDevice(<span class="literal">true</span>),</div><div class="line">      mIsDeviceTypeKnown(<span class="literal">false</span>),</div><div class="line">      mGlobalEffectEnableTime(<span class="number">0</span>),</div><div class="line">      mSystemReady(<span class="literal">false</span>)</div><div class="line">&#123;</div><div class="line">    ......</div><div class="line"></div><div class="line">    mDevicesFactoryHal = DevicesFactoryHalInterface::create();</div><div class="line">    mEffectsFactoryHal = EffectsFactoryHalInterface::create();</div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里我们主要看一下DevicesFactoryHalInterface关系图。EffectsFactoryHalInterface也是类似的情况。<br><img src="https://i.imgur.com/urJudFp.png" alt=""><br>阅读每个类的代码实现，我们发现只有DevicesFactoryHalHybrid实现了DevicesFactoryHalInterface接口的create()函数，所以这里会创建DevicesFactoryHalHybrid实例，而DevicesFactoryHalHybrid会创建DevicesFactoryHalLocal和DevicesFactoryHalHidl实例。DevicesFactoryHalLocal用于直接加载HAL的lib，是为了兼容8.0之前的版本，而DevicesFactoryHalHidl通过binder通信从hwservicemanager中返回IDevicesFactory实例，通过IDevicesFactory的openDevice函数返回具体的Device，并且用DeviceHalHidl封装返回的Device，这里不再会直接加载HAL的lib，后续和HAL的通信完全通过IDevicesFactory接口，具体在AudioPolicyService加载HW module时会更清楚明白。</p>
+<p>第一次初始化还会执行onFirstRef()，创建PatchPanel实例且将AudioFlinger实例传入PatchPanel，设置Audio Mode为AUDIO_MODE_NORMAL,并将自己保存在全局变量gAudioFlinger。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> AudioFlinger::onFirstRef()</div><div class="line">&#123;</div><div class="line">    Mutex::Autolock _l(mLock);</div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">    mPatchPanel = <span class="keyword">new</span> PatchPanel(<span class="keyword">this</span>);</div><div class="line"></div><div class="line">    mMode = AUDIO_MODE_NORMAL;</div><div class="line"></div><div class="line">    gAudioFlinger = <span class="keyword">this</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>Mutex是互斥类，用于多线程访问同一个资源的时候，保证一次只有一个线程能访问该资源。它的工作原理是某一个线程要访问公共资源的时候先锁定这个Mutex，完成操作之后对Mutex解锁，在此期间如果有其它的线程也要访问公共资源，它就先要去锁Mutex，当它发现Mutex已经被锁住了，那么这个线程就是阻塞在那儿。等Mutex解锁之后所有阻塞在Mutex的线程都会醒来，只有第一个醒来的会抢到Mutex，其它没有抢到的发现自己晚了一步，只能继续阻塞在那儿，等待下次机会。Mutex源码位置/system/core/libutils/include/utils。</p>
+<p>为了简化一般的Mutex操作，在class Mutex中定义了一个内部类Autolock，它利用{}作用域实现自动解锁，看一下它的构造函数就知道了。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Autolock</span> &#123;</span></div><div class="line">    <span class="keyword">public</span>:</div><div class="line">        inline explicit Autolock(Mutex&amp; mutex) : mLock(mutex)  &#123; mLock.lock(); &#125;</div><div class="line">        inline explicit Autolock(Mutex* mutex) : mLock(*mutex) &#123; mLock.lock(); &#125;</div><div class="line">        <span class="keyword">inline</span> ~Autolock() &#123; mLock.unlock(); &#125;</div><div class="line">    <span class="keyword">private</span>:</div><div class="line">        Mutex&amp; mLock;</div><div class="line">&#125;;</div></pre></td></tr></table></figure></p>
+<p>我们知道在{}中创建的变量，变开这个大括号时就要销毁，于是就自动调用析构函数了。</p>
+<h2 id="AudioFlinger中放音录音线程"><a href="#AudioFlinger中放音录音线程" class="headerlink" title="AudioFlinger中放音录音线程"></a>AudioFlinger中放音录音线程</h2><p>AudioFlinger作为音频的核心服务，主要责任是负责放音与录音，下面我们可以大致看看放音与录音线程的关系，在AudioPolicyServic启动过程中我们会看到这些线程的创建。<br><img src="https://i.imgur.com/FiwGgwV.png" alt=""></p>
+<ul>
+<li>ThreadBase：ThreadBase以Thread为基类，而又是PlaybackThread、RecordThread和MmapThread的基类。</li>
+<li>RecordThread：音频录音线程，负责音频的录音，没有子类。</li>
+<li>PlaybackThread：代表放音线程，有两个直接子类MixerThread和DirectOutputThread。</li>
+<li>MixerThread：混音放音线程，有子类DuplicatingThread，负责处理标识为<br>AUDIO_OUTPUT_FLAG_PRIMARY、AUDIO_OUTPUT_FLAG_FAST、AUDIO_OUTPUT_FLAG_DEEP_BUFFER的音频流，MixerThread 可以把多个音轨的数据混音后再输出。</li>
+<li>DirectOutputThread：直接输出放音线程，有子类OffloadThread，负责处理标识为AUDIO_OUTPUT_FLAG_DIRECT的音频流，这种音频流数据不需要软件混音，直接输出到音频设备即可。</li>
+<li>DuplicatingThread：复制输出放音线程，负责复制音频流数据到其他输出设备，使用场景如主声卡设备、蓝牙耳机设备、USB声卡设备同时输出。</li>
+<li>OffloadThread：硬解回放线程，负责处理标识为AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD的音频流，这种音频流未经软件解码的（一般是MP3、AAC等格式的数据），需要输出到硬件解码器，由硬件解码器解码成PCM 数据。</li>
+<li>MmapThread：这个线程是Android 8.0新加入的，用于低延迟的放音与录音，与AAudio有关系，有MmapPlaybackThread和MmapCaptureThread两个子类。</li>
+<li>MmapPlaybackThread：MMAP放音线程，负责处理标识为AUDIO_OUTPUT_FLAG_MMAP_NOIRQ的音频流。</li>
+<li>MmapcaptureThread：MMAP录音线程，负责处理标识为AUDIO_INPUT_FLAG_MMAP_NOIRQ的音频流。<h2 id="AudioFlinger中Tracks"><a href="#AudioFlinger中Tracks" class="headerlink" title="AudioFlinger中Tracks"></a>AudioFlinger中Tracks</h2>Track：音轨，是AudioFlinger中另一个重要的将角色，下面我们可以看看其关系。<br><img src="https://i.imgur.com/HHP2bZp.png" alt=""><br>对于播放对应Track，OutputTrack，TrackHandle及BnAudioTrack，TrackHandle和BnAudioTrack主要用于和Client端Binder通信，真正代表输出音轨的为Track。同样对应录音音轨的是RecordTrack，RecordHandle及BnAudioRecord，RecordHandle和BnAudioRecord也用于Binder通信，真正录音音轨为RecordTrack。而对于MmapTrack稍微不太样，而是定义通用接口MmapStreamInterface封装MmapThread，再封装MmapTrack，不是通过XXXHandle继承BnXXX，这也许是出于latency上的考虑。<h2 id="AudioFlinger中的Streams"><a href="#AudioFlinger中的Streams" class="headerlink" title="AudioFlinger中的Streams"></a>AudioFlinger中的Streams</h2>我们看到在AudioFlinger中以AudioHwDevice封装HAL的DeviceHalHidl，而DeviceHalHidl封装从HAL返回的具体的Device，这就和HAL层的so文件连接在一起，且AudioHwDevice直接或间接依赖AudioStreamOut和AudioStreanIn这样也和HAL层中stream关联上，后续打开音频输入输出以及打开输入音频流及输出音频流做好准备。具体我们可以在AudioPolicyService启动的时候看的更清楚。<br><img src="https://i.imgur.com/bIsUSZO.png" alt=""><br>AudioFlinger中还有很多其他的知识点，后续学到时再慢慢补上。</li>
+</ul>
 
       
     </div>
@@ -460,8 +475,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2017/10/30/GitHub搭建自己的博客/" rel="next" title="GitHub搭建个人的博客">
-                <i class="fa fa-chevron-left"></i> GitHub搭建个人的博客
+              <a href="/2017/11/08/Android-Audio-Server启动/" rel="next" title="Android Audio Server启动">
+                <i class="fa fa-chevron-left"></i> Android Audio Server启动
               </a>
             
           </div>
@@ -470,8 +485,8 @@
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2017/11/09/AudioFlinger启动过程/" rel="prev" title="AudioFlinger启动过程">
-                AudioFlinger启动过程 <i class="fa fa-chevron-right"></i>
+              <a href="/2017/11/10/AudioPolicyService启动过程/" rel="prev" title="AudioPolicyService启动过程">
+                AudioPolicyService启动过程 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -534,8 +549,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
 
-      <section class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <section class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
             
@@ -622,6 +646,22 @@
         </div>
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioFlinger的启动过程"><span class="nav-number">1.</span> <span class="nav-text">AudioFlinger的启动过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioFlinger中放音录音线程"><span class="nav-number">2.</span> <span class="nav-text">AudioFlinger中放音录音线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioFlinger中Tracks"><span class="nav-number">3.</span> <span class="nav-text">AudioFlinger中Tracks</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioFlinger中的Streams"><span class="nav-number">4.</span> <span class="nav-text">AudioFlinger中的Streams</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       
@@ -786,9 +826,9 @@
     
       <script type="text/javascript">
         var disqus_config = function () {
-          this.page.url = 'http://yoursite.com/2017/11/08/Android-Audio-Server启动/';
-          this.page.identifier = '2017/11/08/Android-Audio-Server启动/';
-          this.page.title = 'Android Audio Server启动';
+          this.page.url = 'http://yoursite.com/2017/11/09/AudioFlinger启动过程/';
+          this.page.identifier = '2017/11/09/AudioFlinger启动过程/';
+          this.page.title = 'AudioFlinger启动过程';
         };
         var d = document, s = d.createElement('script');
         s.src = 'https://.disqus.com/embed.js';

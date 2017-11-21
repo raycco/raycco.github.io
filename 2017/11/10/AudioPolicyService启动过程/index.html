@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.3" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.3">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.3" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Android," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Raycco's Notes" type="application/atom+xml" />
+
+
+
+
+
+
+<meta name="description" content="AudioPolicyService在Audio系统另一个重要的服务，是音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。本文基于Android 8.0的代码，记录了AudioPolicyService启动的过程，介绍了其中几个比较关键的点，希望以后自己看到此文能快速回想起AudioPolicyService的启动过程。其代码位于frameworks/av/services/audio">
+<meta name="keywords" content="Android">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AudioPolicyService启动过程">
+<meta property="og:url" content="http://yoursite.com/2017/11/10/AudioPolicyService启动过程/index.html">
+<meta property="og:site_name" content="Raycco&#39;s Notes">
+<meta property="og:description" content="AudioPolicyService在Audio系统另一个重要的服务，是音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。本文基于Android 8.0的代码，记录了AudioPolicyService启动的过程，介绍了其中几个比较关键的点，希望以后自己看到此文能快速回想起AudioPolicyService的启动过程。其代码位于frameworks/av/services/audio">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://i.imgur.com/kZpNl4i.png">
+<meta property="og:image" content="https://i.imgur.com/wNiugU3.png">
+<meta property="og:image" content="https://i.imgur.com/6IUY98f.png">
+<meta property="og:image" content="https://i.imgur.com/eEXkdfk.png">
+<meta property="og:image" content="https://i.imgur.com/PDHsnQK.png">
+<meta property="og:image" content="https://i.imgur.com/ou4M7xS.png">
+<meta property="og:image" content="https://i.imgur.com/K5J8Y6B.png">
+<meta property="og:updated_time" content="2017-11-21T12:15:30.239Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AudioPolicyService启动过程">
+<meta name="twitter:description" content="AudioPolicyService在Audio系统另一个重要的服务，是音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。本文基于Android 8.0的代码，记录了AudioPolicyService启动的过程，介绍了其中几个比较关键的点，希望以后自己看到此文能快速回想起AudioPolicyService的启动过程。其代码位于frameworks/av/services/audio">
+<meta name="twitter:image" content="https://i.imgur.com/kZpNl4i.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.3',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/11/10/AudioPolicyService启动过程/"/>
+
+
+
+
+
+  <title>AudioPolicyService启动过程 | Raycco's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Raycco's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">Quick Notes</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-search">
+          <a href="/search/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-search"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/11/10/AudioPolicyService启动过程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Raycco">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Raycco's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">AudioPolicyService启动过程</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-10T20:39:29+08:00">
+                2017-11-10
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android-Audio/" itemprop="url" rel="index">
+                    <span itemprop="name">Android Audio</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2017/11/10/AudioPolicyService启动过程/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count"
+                        data-disqus-identifier="2017/11/10/AudioPolicyService启动过程/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+             <span id="/2017/11/10/AudioPolicyService启动过程/" class="leancloud_visitors" data-flag-title="AudioPolicyService启动过程">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数&#58;</span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>AudioPolicyService在Audio系统另一个重要的服务，是音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。本文基于Android 8.0的代码，记录了AudioPolicyService启动的过程，介绍了其中几个比较关键的点，希望以后自己看到此文能快速回想起AudioPolicyService的启动过程。其代码位于frameworks/av/services/audiopolicy。</p>
+<h2 id="audiopolicy的代码结构"><a href="#audiopolicy的代码结构" class="headerlink" title="audiopolicy的代码结构"></a>audiopolicy的代码结构</h2><ol>
+<li>service目录是AudioPolicyService、AudioPolicyClient、AudioCommandThread及AudioPolicyEffects的定义及实现。</li>
+<li>managerdefault目录提供AudioPolicyManager的基本实现。</li>
+<li>manager目录中是一个工厂类可以根据需要生产所需的AudioPolicyManager，一般各个厂商都会自己实现自己的AudioPolicyManager。</li>
+<li>engine目录定义了AudioPolicyManagerInterface和AudioPolicyManagerObserver接口，<br>AudioPolicyManagerInterface由Policy Engine实现，AudioPolicyManagerObserver这个观察者由AudioPolicyManager实现，以供Engine访问。</li>
+<li>engineconfigure和enginedefault目录是Policy Engine的两种实现，可以根据需要选择其中一种。</li>
+<li>config目录存放audio policy及音量曲线的config文件。</li>
+<li>common目录下定义公共代码。audio_policy.conf是旧版本的audio policy config文件。</li>
+<li>AudioPolicyInterface.h定义了AudioPolicyInterface和AudioPolicyClientInterface接口，AudioPolicyInterface由AuidoPolicyManager实现，特定平台AuidoPolicyManager通过AudioPolicyClientInterface接口的实现者AudioPolicyClient控制音频的输入输出。<br><img src="https://i.imgur.com/kZpNl4i.png" alt=""><h2 id="AudioPolicyService初始化"><a href="#AudioPolicyService初始化" class="headerlink" title="AudioPolicyService初始化"></a>AudioPolicyService初始化</h2>从Android 8.0的code发现，基本流程还是和之前一样，分别创建了ApmTone、ApmAudio、ApmOutput三个AudioCommandThread线程，分别用于播放tone音、执行audio命令和执行输出命令，创建AudioPolicyClient，创建AudioPolicyManager以及创建AudioPolicyEffects。但已经完全移除了对旧版本的AUDIO_POLICY_HARDWARE_MODULE_ID的支持（不再加载audio_policy.default.so库得到audio_policy_module模块），完全使用新模式。<figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div></pre></td><td class="code"><pre><div class="line">AudioPolicyService::AudioPolicyService()</div><div class="line">    : BnAudioPolicyService(), mpAudioPolicyDev(<span class="literal">NULL</span>), mpAudioPolicy(<span class="literal">NULL</span>),</div><div class="line">      mAudioPolicyManager(<span class="literal">NULL</span>), mAudioPolicyClient(<span class="literal">NULL</span>), mPhoneState(AUDIO_MODE_INVALID)</div><div class="line">&#123;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">void</span> AudioPolicyService::onFirstRef()</div><div class="line">&#123;</div><div class="line">    &#123;</div><div class="line">        Mutex::Autolock _l(mLock);</div><div class="line"></div><div class="line">        <span class="comment">// start tone playback thread</span></div><div class="line">        mTonePlaybackThread = <span class="keyword">new</span> AudioCommandThread(String8(<span class="string">"ApmTone"</span>), <span class="keyword">this</span>);</div><div class="line">        <span class="comment">// start audio commands thread</span></div><div class="line">        mAudioCommandThread = <span class="keyword">new</span> AudioCommandThread(String8(<span class="string">"ApmAudio"</span>), <span class="keyword">this</span>);</div><div class="line">        <span class="comment">// start output activity command thread</span></div><div class="line">        mOutputCommandThread = <span class="keyword">new</span> AudioCommandThread(String8(<span class="string">"ApmOutput"</span>), <span class="keyword">this</span>);</div><div class="line"></div><div class="line">        mAudioPolicyClient = <span class="keyword">new</span> AudioPolicyClient(<span class="keyword">this</span>);</div><div class="line">        mAudioPolicyManager = createAudioPolicyManager(mAudioPolicyClient);</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// load audio processing modules</span></div><div class="line">    sp&lt;AudioPolicyEffects&gt;audioPolicyEffects = <span class="keyword">new</span> AudioPolicyEffects();</div><div class="line">    &#123;</div><div class="line">        Mutex::Autolock _l(mLock);</div><div class="line">        mAudioPolicyEffects = audioPolicyEffects;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>这些类之间的大致关系如下（AudioPolicyClient和AudioCommandThread都为AudioPolicyService的内部类）：<br><img src="https://i.imgur.com/wNiugU3.png" alt=""><br>AudioPolicyService的初始化大致分为3步：<br>1.创建三个AudioCommandThread（mTonePlaybackThread，mAudioCommandThread和mOutputCommandThread）<br>2.初始化AudioPolicyManager<br> 2.1 加载并解析audio_policy_configuration.xml<br> 2.2 加载对应的HW module<br> 2.3 初始化Policy Engine<br> 2.4 打开输入输出<br> 2.5 确保所有可用输入输出设备和默认输出设备真正可用<br>3.初始化AudioPolicyEffects</p>
+<h2 id="AudioCommandThread线程"><a href="#AudioCommandThread线程" class="headerlink" title="AudioCommandThread线程"></a>AudioCommandThread线程</h2><p>AudioCommandThread采用异步方式来执行audio command，当需要执行上表中的命令时，首先将命令投递到AudioCommandThread的mAudioCommands命令向量表中，然后通过mWaitWorkCV.signal()唤醒AudioCommandThread线程，被唤醒的AudioCommandThread线程执行完command后，又通过mWaitWorkCV.waitRelative(mLock, waitTime)睡眠等待命令到来。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> AudioPolicyService::AudioCommandThread::onFirstRef()</div><div class="line">&#123;</div><div class="line">    run(mName.<span class="built_in">string</span>(), ANDROID_PRIORITY_AUDIO);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">status_t</span> AudioPolicyService::AudioCommandThread::volumeCommand(<span class="keyword">audio_stream_type_t</span> stream,</div><div class="line">                              <span class="keyword">float</span> volume, <span class="keyword">audio_io_handle_t</span> output, <span class="keyword">int</span> delayMs)</div><div class="line">&#123;</div><div class="line">    sp&lt;AudioCommand&gt; command = <span class="keyword">new</span> AudioCommand();</div><div class="line">    command-&gt;mCommand = SET_VOLUME;</div><div class="line">    sp&lt;VolumeData&gt; data = <span class="keyword">new</span> VolumeData();</div><div class="line">    data-&gt;mStream = stream;</div><div class="line">    data-&gt;mVolume = volume;</div><div class="line">    data-&gt;mIO = output;</div><div class="line">    command-&gt;mParam = data;</div><div class="line">    command-&gt;mWaitStatus = <span class="literal">true</span>;</div><div class="line">    <span class="keyword">return</span> sendCommand(command, delayMs);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">bool</span> AudioPolicyService::AudioCommandThread::threadLoop()</div><div class="line">&#123;</div><div class="line">    <span class="keyword">nsecs_t</span> waitTime = <span class="number">-1</span>;</div><div class="line"></div><div class="line">    mLock.lock();</div><div class="line">    <span class="keyword">while</span> (!exitPending())</div><div class="line">    &#123;</div><div class="line">        sp&lt;AudioPolicyService&gt; svc;</div><div class="line">        <span class="keyword">while</span> (!mAudioCommands.isEmpty() &amp;&amp; !exitPending()) &#123;</div><div class="line">            <span class="keyword">nsecs_t</span> curTime = systemTime();</div><div class="line">            <span class="comment">// commands are sorted by increasing time stamp: execute them from index 0 and up</span></div><div class="line">            <span class="keyword">if</span> (mAudioCommands[<span class="number">0</span>]-&gt;mTime &lt;= curTime) &#123;</div><div class="line">                sp&lt;AudioCommand&gt; command = mAudioCommands[<span class="number">0</span>];</div><div class="line">                mAudioCommands.removeAt(<span class="number">0</span>);</div><div class="line">                mLastCommand = command;</div><div class="line"></div><div class="line">                <span class="keyword">switch</span> (command-&gt;mCommand) &#123;</div><div class="line"></div><div class="line">                ......</div><div class="line"></div><div class="line">                <span class="keyword">case</span> SET_VOLUME: &#123;</div><div class="line">                    VolumeData *data = (VolumeData *)command-&gt;mParam.get();</div><div class="line">                    ALOGV(<span class="string">"AudioCommandThread() processing set volume stream %d, \</span></div><div class="line"><span class="string">                            volume %f, output %d"</span>, data-&gt;mStream, data-&gt;mVolume, data-&gt;mIO);</div><div class="line">                    command-&gt;mStatus = AudioSystem::setStreamVolume(data-&gt;mStream,</div><div class="line">                                                                    data-&gt;mVolume,</div><div class="line">                                                                    data-&gt;mIO);</div><div class="line">                    &#125;<span class="keyword">break</span>;</div><div class="line"></div><div class="line">                ......</div><div class="line"></div><div class="line">                &#125;</div><div class="line">                </div><div class="line">                .....</div><div class="line"></div><div class="line">            &#125; <span class="keyword">else</span> &#123;</div><div class="line">                waitTime = mAudioCommands[<span class="number">0</span>]-&gt;mTime - curTime;</div><div class="line">                <span class="keyword">break</span>;</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        ......</div><div class="line"></div><div class="line">        <span class="comment">// At this stage we have either an empty command queue or the first command in the queue</span></div><div class="line">        <span class="comment">// has a finite delay. So unless we are exiting it is safe to wait.</span></div><div class="line">        <span class="keyword">if</span> (!exitPending()) &#123;</div><div class="line">            ALOGV(<span class="string">"AudioCommandThread() going to sleep"</span>);</div><div class="line">            <span class="keyword">if</span> (waitTime == <span class="number">-1</span>) &#123;</div><div class="line">                mWaitWorkCV.wait(mLock);</div><div class="line">            &#125; <span class="keyword">else</span> &#123;</div><div class="line">                mWaitWorkCV.waitRelative(mLock, waitTime);</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    </div><div class="line">    ......</div><div class="line"></div><div class="line">    mLock.unlock();</div><div class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>AudioCommandThread是AudioPolicyService的内部类，AudioCommandThread在内部又定义了AudioCommand及AudioCommandData关系如下。<br><img src="https://i.imgur.com/6IUY98f.png" alt=""></p>
+<h2 id="AudioPolicyManager初始化"><a href="#AudioPolicyManager初始化" class="headerlink" title="AudioPolicyManager初始化"></a>AudioPolicyManager初始化</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div></pre></td><td class="code"><pre><div class="line">AudioPolicyManager::AudioPolicyManager(AudioPolicyClientInterface *clientInterface)</div><div class="line">    :</div><div class="line">    mLimitRingtoneVolume(<span class="literal">false</span>), mLastVoiceVolume(<span class="number">-1.0f</span>),</div><div class="line">    mA2dpSuspended(<span class="literal">false</span>),</div><div class="line">    mAudioPortGeneration(<span class="number">1</span>),</div><div class="line">    mBeaconMuteRefCount(<span class="number">0</span>),</div><div class="line">    mBeaconPlayingRefCount(<span class="number">0</span>),</div><div class="line">    mBeaconMuted(<span class="literal">false</span>),</div><div class="line">    mTtsOutputAvailable(<span class="literal">false</span>),</div><div class="line">    mMasterMono(<span class="literal">false</span>),</div><div class="line">    mMusicEffectOutput(AUDIO_IO_HANDLE_NONE),</div><div class="line">    mHasComputedSoundTriggerSupportsConcurrentCapture(<span class="literal">false</span>)</div><div class="line">&#123;</div><div class="line">    mUidCached = getuid();</div><div class="line">    mpClientInterface = clientInterface;</div><div class="line"></div><div class="line">    ...... </div><div class="line">    <span class="comment">// audio policy config加载</span></div><div class="line"></div><div class="line">    <span class="comment">// 初始化Policy Engine</span></div><div class="line"></div><div class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i &lt; mHwModules.size(); i++) &#123;</div><div class="line">        <span class="comment">// 加载所有的HW module</span></div><div class="line">        ......</div><div class="line">        <span class="comment">// 打开音频输入输出</span></div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">// 确保所有可用输入输出设备真正可用</span></div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="comment">// 确保默认输出设备真正可用</span></div><div class="line">    ALOGE_IF((mPrimaryOutput == <span class="number">0</span>), <span class="string">"Failed to open primary output"</span>);</div><div class="line">    updateDevicesAndOutputs();</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="audio-policy-config加载"><a href="#audio-policy-config加载" class="headerlink" title="audio policy config加载"></a>audio policy config加载</h3><p>进入AudioPolicyManager构造函数，会首先加载audio policy config文件，对于旧版本使用audio_policy.conf，在代码中定义音量曲线，对于新版本使用audio_policy_configuration.xml。对于Android 8.0使用新版本，这个文件一般会位于/odm/etc或/vendor/etc，同时解析音量曲线xml（audio_policy_volumes.xml和default_volume_tables.xml）,比起之前的硬编码音量曲线，灵活性更好。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> USE_XML_AUDIO_POLICY_CONF</span></div><div class="line">    mVolumeCurves = <span class="keyword">new</span> VolumeCurvesCollection();</div><div class="line">    <span class="function">AudioPolicyConfig <span class="title">config</span><span class="params">(mHwModules, mAvailableOutputDevices, mAvailableInputDevices,</span></span></div><div class="line"><span class="function"><span class="params">                             mDefaultOutputDevice, speakerDrcEnabled,</span></span></div><div class="line">                             static_cast&lt;VolumeCurvesCollection *&gt;(mVolumeCurves));</div><div class="line">    <span class="keyword">if</span> (deserializeAudioPolicyXmlConfig(config) != NO_ERROR) &#123;</div><div class="line"><span class="meta">#<span class="meta-keyword">else</span></span></div><div class="line">    mVolumeCurves = <span class="keyword">new</span> StreamDescriptorCollection();</div><div class="line">    <span class="function">AudioPolicyConfig <span class="title">config</span><span class="params">(mHwModules, mAvailableOutputDevices, mAvailableInputDevices,</span></span></div><div class="line"><span class="function"><span class="params">                             mDefaultOutputDevice, speakerDrcEnabled)</span></span>;</div><div class="line">    <span class="keyword">if</span> ((ConfigParsingUtils::loadConfig(AUDIO_POLICY_VENDOR_CONFIG_FILE, config) != NO_ERROR) &amp;&amp;</div><div class="line">            (ConfigParsingUtils::loadConfig(AUDIO_POLICY_CONFIG_FILE, config) != NO_ERROR)) &#123;</div><div class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></div><div class="line">        ALOGE(<span class="string">"could not load audio policy configuration file, setting defaults"</span>);</div><div class="line">        config.setDefault();</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="comment">// must be done after reading the policy (since conditionned by Speaker Drc Enabling)</span></div><div class="line">    <span class="comment">// xml模式时这里是一个空函数无实现</span></div><div class="line">    mVolumeCurves-&gt;initializeVolumeCurves(speakerDrcEnabled);</div></pre></td></tr></table></figure></p>
+<p>当执行完deserializeAudioPolicyXmlConfig，会得到mHwModules对应各个Audio HAL模块、mAvailableOutputDevices可用的输出设备、mAvailableInputDevices可用的输入设备、mDefaultOutputDevice默认输出设备、mVolumeCurves音量曲线及speakerDrcEnabled。</p>
+<p>audio_policy_configuration.xml同时定义了多个audio接口(HwModules)，每一个audio接口包含若干routes（通路）、devicesPorts（设备）和mixPorts（音频流），而每个mixPorts又包含多个input和output流，每个input和output流又同时支持多种输入输出模式，每种输入输出模式又支持若干种设备。<br>mixPorts：listing all output and input streams exposed by the audio HAL.<br>routes：list of possible connections between input and output devices or between stream and devices.<br>devicePorts：a list of device descriptors for all input and output devices accessible via this module.This contains both permanently attached devices and removable devices.<br><img src="https://i.imgur.com/eEXkdfk.png" alt=""><br>每个stream type会分为四种device category：DEVICE_CATEGORY_HEADSET，DEVICE_CATEGORY_SPEAKER，DEVICE_CATEGORY_EARPIECE及DEVICE_CATEGORY_EXT_MEDIA来定义音量曲线，定义的形式如下，一样是分段定义，在每一段中定义不同的衰减值以控制音量的大小。<br>It contains a list of points of this curve expressing the attenuation in Millibels for a given volume index from 0 to 100.<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="tag">&lt;<span class="name">volume</span> <span class="attr">stream</span>=<span class="string">"AUDIO_STREAM_VOICE_CALL"</span> <span class="attr">deviceCategory</span>=<span class="string">"DEVICE_CATEGORY_HEADSET"</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">point</span>&gt;</span>0,-4200<span class="tag">&lt;/<span class="name">point</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">point</span>&gt;</span>33,-2800<span class="tag">&lt;/<span class="name">point</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">point</span>&gt;</span>66,-1400<span class="tag">&lt;/<span class="name">point</span>&gt;</span></div><div class="line">    <span class="tag">&lt;<span class="name">point</span>&gt;</span>100,0<span class="tag">&lt;/<span class="name">point</span>&gt;</span></div><div class="line"><span class="tag">&lt;/<span class="name">volume</span>&gt;</span></div></pre></td></tr></table></figure></p>
+<h3 id="初始化Policy-Engine"><a href="#初始化Policy-Engine" class="headerlink" title="初始化Policy Engine"></a>初始化Policy Engine</h3><p>这里也算一个观察者模式吧，EngineInstance是单例模式，通过EngineInstance创建AudioPolicyManagerInterface，从而创建Policy Engine，然后设置观察者。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// Once policy config has been parsed, retrieve an instance of the engine and initialize it.</span></div><div class="line">    audio_policy::EngineInstance *engineInstance = audio_policy::EngineInstance::getInstance();</div><div class="line">    <span class="keyword">if</span> (!engineInstance) &#123;</div><div class="line">        ALOGE(<span class="string">"%s:  Could not get an instance of policy engine"</span>, __FUNCTION__);</div><div class="line">        <span class="keyword">return</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// Retrieve the Policy Manager Interface</span></div><div class="line">    mEngine = engineInstance-&gt;queryInterface&lt;AudioPolicyManagerInterface&gt;();</div><div class="line">    <span class="keyword">if</span> (mEngine == <span class="literal">NULL</span>) &#123;</div><div class="line">        ALOGE(<span class="string">"%s: Failed to get Policy Engine Interface"</span>, __FUNCTION__);</div><div class="line">        <span class="keyword">return</span>;</div><div class="line">    &#125;</div><div class="line">    mEngine-&gt;setObserver(<span class="keyword">this</span>);</div><div class="line">    <span class="keyword">status_t</span> status = mEngine-&gt;initCheck();</div><div class="line">    (<span class="keyword">void</span>) status;</div><div class="line">    ALOG_ASSERT(status == NO_ERROR, <span class="string">"Policy engine not initialized(err=%d)"</span>, status);</div></pre></td></tr></table></figure></p>
+<p>其大致关系如下。<br><img src="https://i.imgur.com/PDHsnQK.png" alt=""></p>
+<h3 id="加载HW-Module"><a href="#加载HW-Module" class="headerlink" title="加载HW Module"></a>加载HW Module</h3><p>根据audio policy config加载的HwModule真正加载HAL层的HW module。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="comment">// mAvailableOutputDevices and mAvailableInputDevices now contain all attached devices</span></div><div class="line"><span class="comment">// open all output streams needed to access attached devices</span></div><div class="line"><span class="keyword">audio_devices_t</span> outputDeviceTypes = mAvailableOutputDevices.types();</div><div class="line"><span class="keyword">audio_devices_t</span> inputDeviceTypes = mAvailableInputDevices.types() &amp; ~AUDIO_DEVICE_BIT_IN;</div><div class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i &lt; mHwModules.size(); i++) &#123;</div><div class="line">    mHwModules[i]-&gt;mHandle = mpClientInterface-&gt;loadHwModule(mHwModules[i]-&gt;getName());</div><div class="line">    <span class="keyword">if</span> (mHwModules[i]-&gt;mHandle == <span class="number">0</span>) &#123;</div><div class="line">        <span class="keyword">continue</span>;</div><div class="line">    &#125;</div><div class="line">    ......</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>从如上代码看出，会执行mpClientInterface-&gt;loadHwModule，即调用AudioPolicyClient的loadHwModule函数，又会转到AudioFlinger的loadHwModule。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">audio_module_handle_t</span> AudioPolicyService::AudioPolicyClient::loadHwModule(<span class="keyword">const</span> <span class="keyword">char</span> *name)</div><div class="line">&#123;</div><div class="line">    sp&lt;IAudioFlinger&gt; af = AudioSystem::get_audio_flinger();</div><div class="line">    <span class="keyword">if</span> (af == <span class="number">0</span>) &#123;</div><div class="line">        ALOGW(<span class="string">"%s: could not get AudioFlinger"</span>, __func__);</div><div class="line">        <span class="keyword">return</span> AUDIO_MODULE_HANDLE_NONE;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    <span class="keyword">return</span> af-&gt;loadHwModule(name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="keyword">audio_module_handle_t</span> AudioFlinger::loadHwModule(<span class="keyword">const</span> <span class="keyword">char</span> *name)</div><div class="line">&#123;</div><div class="line">    <span class="keyword">if</span> (name == <span class="literal">NULL</span>) &#123;</div><div class="line">        <span class="keyword">return</span> AUDIO_MODULE_HANDLE_NONE;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">if</span> (!settingsAllowed()) &#123;</div><div class="line">        <span class="keyword">return</span> AUDIO_MODULE_HANDLE_NONE;</div><div class="line">    &#125;</div><div class="line">    Mutex::Autolock _l(mLock);</div><div class="line">    <span class="keyword">return</span> loadHwModule_l(name);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// loadHwModule_l() must be called with AudioFlinger::mLock held</span></div><div class="line"><span class="keyword">audio_module_handle_t</span> AudioFlinger::loadHwModule_l(<span class="keyword">const</span> <span class="keyword">char</span> *name)</div><div class="line">&#123;</div><div class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i &lt; mAudioHwDevs.size(); i++) &#123;</div><div class="line">        <span class="keyword">if</span> (<span class="built_in">strncmp</span>(mAudioHwDevs.valueAt(i)-&gt;moduleName(), name, <span class="built_in">strlen</span>(name)) == <span class="number">0</span>) &#123;</div><div class="line">            ALOGW(<span class="string">"loadHwModule() module %s already loaded"</span>, name);</div><div class="line">            <span class="keyword">return</span> mAudioHwDevs.keyAt(i);</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    sp&lt;DeviceHalInterface&gt; dev;</div><div class="line"></div><div class="line">    <span class="keyword">int</span> rc = mDevicesFactoryHal-&gt;openDevice(name, &amp;dev);</div><div class="line">    <span class="keyword">if</span> (rc) &#123;</div><div class="line">        ALOGE(<span class="string">"loadHwModule() error %d loading module %s"</span>, rc, name);</div><div class="line">        <span class="keyword">return</span> AUDIO_MODULE_HANDLE_NONE;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="comment">// Check and cache this HAL's level of support for master mute and master</span></div><div class="line">    <span class="comment">// volume.  If this is the first HAL opened, and it supports the get</span></div><div class="line">    <span class="comment">// methods, use the initial values provided by the HAL as the current</span></div><div class="line">    <span class="comment">// master mute and volume settings.</span></div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="keyword">audio_module_handle_t</span> handle = </div><div class="line">          (<span class="keyword">audio_module_handle_t</span>) nextUniqueId(AUDIO_UNIQUE_ID_USE_MODULE);</div><div class="line">    mAudioHwDevs.add(handle, <span class="keyword">new</span> AudioHwDevice(handle, name, dev, flags));</div><div class="line"></div><div class="line">    ALOGI(<span class="string">"loadHwModule() Loaded %s audio interface, handle %d"</span>, name, handle);</div><div class="line"></div><div class="line">    <span class="keyword">return</span> handle;</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>mDevicesFactoryHal-&gt;openDevice(name, &amp;dev),从前面AudioFlinger的启动，我们知道mDevicesFactoryHal是HAL进程的客户端，对于Android 8.0加载HAL so文件已经移到HAL进程中，不再与audioserver处于同一个进程中。在AudioFlinger中使用AudioHwDevice代表HW Module，AudioHwDevice会封装audio_module_handle_t和DeviceHalInterface，并以audio_module_handle_t为key将其保存在AudioFlinger的mAudioHwDevs中，以供后续查询。<br>到这里就加载系统的音频接口就加载完了，我们大致可以得出如下结果。<br><img src="https://i.imgur.com/ou4M7xS.png" alt=""></p>
+<h3 id="打开音频输出"><a href="#打开音频输出" class="headerlink" title="打开音频输出"></a>打开音频输出</h3><p>这里的输出，即mixPorts中outputs，也就是mHwModules中所有OutputProfile（IOProfile），代表了音频输出流。所以会遍历mHwModules中所有OutputProfile，然后SwAudioOutputDescriptor来描述每一个output，最终保存在以audio_io_handle_t为key的mOutputs中，以供后续查询。不过这里会除了AUDIO_OUTPUT_FLAG_DIRECT，AUDIO_OUTPUT_FLAG_DIRECT的output会在使用的时候打开，不会预先open。在打开输出设备后还会标记可用输出设备的可用情况，以备后续确认可用输出设备真正可用。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// open all output streams needed to access attached devices</span></div><div class="line"><span class="comment">// except for direct output streams that are only opened when they are actually</span></div><div class="line"><span class="comment">// required by an app.</span></div><div class="line"><span class="comment">// This also validates mAvailableOutputDevices list</span></div><div class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> j = <span class="number">0</span>; j &lt; mHwModules[i]-&gt;mOutputProfiles.size(); j++)</div><div class="line">&#123;</div><div class="line">     <span class="keyword">const</span> sp&lt;IOProfile&gt; outProfile = mHwModules[i]-&gt;mOutputProfiles[j];</div><div class="line">     <span class="keyword">if</span> (!outProfile-&gt;hasSupportedDevices()) &#123;</div><div class="line">         <span class="keyword">continue</span>;</div><div class="line">     &#125;</div><div class="line">     <span class="keyword">if</span> ((outProfile-&gt;getFlags() &amp; AUDIO_OUTPUT_FLAG_TTS) != <span class="number">0</span>) &#123;</div><div class="line">         mTtsOutputAvailable = <span class="literal">true</span>;</div><div class="line">     &#125;</div><div class="line">     <span class="keyword">if</span> ((outProfile-&gt;getFlags() &amp; AUDIO_OUTPUT_FLAG_DIRECT) != <span class="number">0</span>) &#123;</div><div class="line">         <span class="keyword">continue</span>;</div><div class="line">     &#125;</div><div class="line">     <span class="keyword">audio_devices_t</span> profileType = outProfile-&gt;getSupportedDevicesType();</div><div class="line">     <span class="keyword">if</span> ((profileType &amp; mDefaultOutputDevice-&gt;type()) != AUDIO_DEVICE_NONE) &#123;</div><div class="line">         profileType = mDefaultOutputDevice-&gt;type();</div><div class="line">     &#125; <span class="keyword">else</span> &#123;</div><div class="line">         <span class="comment">// chose first device present in profile's SupportedDevices also part of</span></div><div class="line">         <span class="comment">// outputDeviceTypes</span></div><div class="line">         profileType = outProfile-&gt;getSupportedDeviceForType(outputDeviceTypes);</div><div class="line">     &#125;</div><div class="line">     <span class="keyword">if</span> ((profileType &amp; outputDeviceTypes) == <span class="number">0</span>) &#123;</div><div class="line">         <span class="keyword">continue</span>;</div><div class="line">     &#125;</div><div class="line">     sp&lt;SwAudioOutputDescriptor&gt; outputDesc = </div><div class="line">                       <span class="keyword">new</span> SwAudioOutputDescriptor(outProfile, mpClientInterface);</div><div class="line">     <span class="keyword">const</span> DeviceVector &amp;supportedDevices = outProfile-&gt;getSupportedDevices();</div><div class="line">     <span class="keyword">const</span> DeviceVector &amp;devicesForType = </div><div class="line">                           supportedDevices.getDevicesFromType(profileType);</div><div class="line">     String8 address = devicesForType.size() &gt; <span class="number">0</span> </div><div class="line">                       ? devicesForType.itemAt(<span class="number">0</span>)-&gt;mAddress : String8(<span class="string">""</span>);</div><div class="line">     outputDesc-&gt;mDevice = profileType;</div><div class="line">     <span class="keyword">audio_config_t</span> config = AUDIO_CONFIG_INITIALIZER;</div><div class="line">     config.sample_rate = outputDesc-&gt;mSamplingRate;</div><div class="line">     config.channel_mask = outputDesc-&gt;mChannelMask;</div><div class="line">     config.format = outputDesc-&gt;mFormat;</div><div class="line">     <span class="keyword">audio_io_handle_t</span> output = AUDIO_IO_HANDLE_NONE;</div><div class="line">     <span class="keyword">status_t</span> status = mpClientInterface-&gt;openOutput(outProfile-&gt;getModuleHandle(),</div><div class="line">                                                     &amp;output,</div><div class="line">                                                     &amp;config,</div><div class="line">                                                     &amp;outputDesc-&gt;mDevice,</div><div class="line">                                                     address,</div><div class="line">                                                     &amp;outputDesc-&gt;mLatency,</div><div class="line">                                                     outputDesc-&gt;mFlags);</div><div class="line">     <span class="keyword">if</span> (status != NO_ERROR) &#123;</div><div class="line">         ......</div><div class="line">     &#125; <span class="keyword">else</span> &#123;</div><div class="line">         outputDesc-&gt;mSamplingRate = config.sample_rate;</div><div class="line">         outputDesc-&gt;mChannelMask = config.channel_mask;</div><div class="line">         outputDesc-&gt;mFormat = config.format;</div><div class="line">         <span class="keyword">for</span> (<span class="keyword">size_t</span> k = <span class="number">0</span>; k  &lt; supportedDevices.size(); k++) &#123;</div><div class="line">              <span class="keyword">ssize_t</span> index = mAvailableOutputDevices.indexOf(supportedDevices[k]);</div><div class="line">              <span class="comment">// give a valid ID to an attached device once confirmed it is reachable</span></div><div class="line">              <span class="keyword">if</span> (index &gt;= <span class="number">0</span> &amp;&amp; !mAvailableOutputDevices[index]-&gt;isAttached()) &#123;</div><div class="line">                  mAvailableOutputDevices[index]-&gt;attach(mHwModules[i]);</div><div class="line">              &#125;</div><div class="line">         &#125;</div><div class="line">         <span class="keyword">if</span> (mPrimaryOutput == <span class="number">0</span> &amp;&amp;</div><div class="line">                     outProfile-&gt;getFlags() &amp; AUDIO_OUTPUT_FLAG_PRIMARY) &#123;</div><div class="line">             mPrimaryOutput = outputDesc;</div><div class="line">         &#125;</div><div class="line">         addOutput(output, outputDesc);</div><div class="line">         setOutputDevice(outputDesc,</div><div class="line">                         outputDesc-&gt;mDevice,</div><div class="line">                         <span class="literal">true</span>,</div><div class="line">                         <span class="number">0</span>,</div><div class="line">                         <span class="literal">NULL</span>,</div><div class="line">                         address.<span class="built_in">string</span>());</div><div class="line">     &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>我们看到会使用到mpClientInterface打开输出，即调用AudioPolicyClient的openOutput，即调用<br>AudioFlinger的openOutput及openOutput_l。首先调用findSuitableHwDev_l查询合适的AudioHwDevice，即通过audio_module_handle_t在之前加载的mAudioHwDevs中去除对应的AudioHwDevice，调用AudioHwDevice的openOutputStream得到AudioStreamOut，然后根据output flag创建相应的Thread，最后以audio_io_handle_t为key将Thread保存在mPlaybackThreads和mMmapThreads。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div></pre></td><td class="code"><pre><div class="line">sp&lt;AudioFlinger::ThreadBase&gt; AudioFlinger::openOutput_l(<span class="keyword">audio_module_handle_t</span> <span class="keyword">module</span>,</div><div class="line">                                                            <span class="keyword">audio_io_handle_t</span> *output,</div><div class="line">                                                            <span class="keyword">audio_config_t</span> *config,</div><div class="line">                                                            <span class="keyword">audio_devices_t</span> devices,</div><div class="line">                                                            <span class="keyword">const</span> String8&amp; address,</div><div class="line">                                                            <span class="keyword">audio_output_flags_t</span> flags)</div><div class="line">&#123;</div><div class="line">    AudioHwDevice *outHwDev = findSuitableHwDev_l(<span class="keyword">module</span>, devices);</div><div class="line">    <span class="keyword">if</span> (outHwDev == <span class="literal">NULL</span>) &#123;</div><div class="line">        <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">if</span> (*output == AUDIO_IO_HANDLE_NONE) &#123;</div><div class="line">        *output = nextUniqueId(AUDIO_UNIQUE_ID_USE_OUTPUT);</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">    &#125;</div><div class="line">    mHardwareStatus = AUDIO_HW_OUTPUT_OPEN;</div><div class="line">    <span class="comment">// FOR TESTING ONLY:</span></div><div class="line">    ......</div><div class="line"></div><div class="line">    AudioStreamOut *outputStream = <span class="literal">NULL</span>;</div><div class="line">    <span class="keyword">status_t</span> status = outHwDev-&gt;openOutputStream(</div><div class="line">            &amp;outputStream,</div><div class="line">            *output,</div><div class="line">            devices,</div><div class="line">            flags,</div><div class="line">            config,</div><div class="line">            address.<span class="built_in">string</span>());</div><div class="line">    mHardwareStatus = AUDIO_HW_IDLE;</div><div class="line">    <span class="keyword">if</span> (status == NO_ERROR) &#123;</div><div class="line">        <span class="keyword">if</span> (flags &amp; AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) &#123;</div><div class="line">            sp&lt;MmapPlaybackThread&gt; thread =</div><div class="line">                    <span class="keyword">new</span> MmapPlaybackThread(<span class="keyword">this</span>, *output, outHwDev, outputStream,</div><div class="line">                                          devices, AUDIO_DEVICE_NONE, mSystemReady);</div><div class="line">            mMmapThreads.add(*output, thread);</div><div class="line">            ALOGV(<span class="string">"openOutput_l() created mmap playback thread: ID %d thread %p"</span>,</div><div class="line">                  *output, thread.get());</div><div class="line">            <span class="keyword">return</span> thread;</div><div class="line">        &#125; <span class="keyword">else</span> &#123;</div><div class="line">            sp&lt;PlaybackThread&gt; thread;</div><div class="line">            <span class="keyword">if</span> (flags &amp; AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) &#123;</div><div class="line">                thread = <span class="keyword">new</span> OffloadThread(<span class="keyword">this</span>, outputStream, *output, devices, mSystemReady);</div><div class="line">                ALOGV(<span class="string">"openOutput_l() created offload output: ID %d thread %p"</span>,</div><div class="line">                      *output, thread.get());</div><div class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> ((flags &amp; AUDIO_OUTPUT_FLAG_DIRECT)</div><div class="line">                    || !isValidPcmSinkFormat(config-&gt;format)</div><div class="line">                    || !isValidPcmSinkChannelMask(config-&gt;channel_mask)) &#123;</div><div class="line">                thread = <span class="keyword">new</span> DirectOutputThread(<span class="keyword">this</span>, outputStream, </div><div class="line">                                         *output, devices, mSystemReady);</div><div class="line">                ALOGV(<span class="string">"openOutput_l() created direct output: ID %d thread %p"</span>,</div><div class="line">                      *output, thread.get());</div><div class="line">            &#125; <span class="keyword">else</span> &#123;</div><div class="line">                thread = <span class="keyword">new</span> MixerThread(<span class="keyword">this</span>, outputStream, *output, devices, mSystemReady);</div><div class="line">                ALOGV(<span class="string">"openOutput_l() created mixer output: ID %d thread %p"</span>,</div><div class="line">                      *output, thread.get());</div><div class="line">            &#125;</div><div class="line">            mPlaybackThreads.add(*output, thread);</div><div class="line">            <span class="keyword">return</span> thread;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">&#125;</div><div class="line"><span class="keyword">status_t</span> AudioFlinger::openOutput(<span class="keyword">audio_module_handle_t</span> <span class="keyword">module</span>,</div><div class="line">                                  <span class="keyword">audio_io_handle_t</span> *output,</div><div class="line">                                  <span class="keyword">audio_config_t</span> *config,</div><div class="line">                                  <span class="keyword">audio_devices_t</span> *devices,</div><div class="line">                                  <span class="keyword">const</span> String8&amp; address,</div><div class="line">                                  <span class="keyword">uint32_t</span> *latencyMs,</div><div class="line">                                  <span class="keyword">audio_output_flags_t</span> flags)</div><div class="line">&#123;</div><div class="line">    <span class="keyword">if</span> (devices == <span class="literal">NULL</span> || *devices == AUDIO_DEVICE_NONE) &#123;</div><div class="line">        <span class="keyword">return</span> BAD_VALUE;</div><div class="line">    &#125;</div><div class="line">    Mutex::Autolock _l(mLock);</div><div class="line">    sp&lt;ThreadBase&gt; thread = openOutput_l(<span class="keyword">module</span>, output, config, *devices, address, flags);</div><div class="line">    <span class="keyword">if</span> (thread != <span class="number">0</span>) &#123;</div><div class="line">        <span class="keyword">if</span> ((flags &amp; AUDIO_OUTPUT_FLAG_MMAP_NOIRQ) == <span class="number">0</span>) &#123;</div><div class="line">            PlaybackThread *playbackThread = (PlaybackThread *)thread.get();</div><div class="line">            *latencyMs = playbackThread-&gt;latency();</div><div class="line">            <span class="comment">// notify client processes of the new output creation</span></div><div class="line">            playbackThread-&gt;ioConfigChanged(AUDIO_OUTPUT_OPENED);</div><div class="line">            <span class="comment">// the first primary output opened designates the primary hw device</span></div><div class="line">            <span class="keyword">if</span> ((mPrimaryHardwareDev == <span class="literal">NULL</span>) &amp;&amp; (flags &amp; AUDIO_OUTPUT_FLAG_PRIMARY)) &#123;</div><div class="line">                ALOGI(<span class="string">"Using module %d as the primary audio interface"</span>, <span class="keyword">module</span>);</div><div class="line">                mPrimaryHardwareDev = playbackThread-&gt;getOutput()-&gt;audioHwDev;</div><div class="line">                <span class="function">AutoMutex <span class="title">lock</span><span class="params">(mHardwareLock)</span></span>;</div><div class="line">                mHardwareStatus = AUDIO_HW_SET_MODE;</div><div class="line">                mPrimaryHardwareDev-&gt;hwDevice()-&gt;setMode(mMode);</div><div class="line">                mHardwareStatus = AUDIO_HW_IDLE;</div><div class="line">            &#125;</div><div class="line">        &#125; <span class="keyword">else</span> &#123;</div><div class="line">            MmapThread *mmapThread = (MmapThread *)thread.get();</div><div class="line">            mmapThread-&gt;ioConfigChanged(AUDIO_OUTPUT_OPENED);</div><div class="line">        &#125;</div><div class="line">        <span class="keyword">return</span> NO_ERROR;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> NO_INIT;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>我们可以看到在AudioPolicyManager中有mOutputs以audio_io_handle_t为key保存SwAudioOutputDescriptor，而在AudioFlinger中mPlaybackThreads和mMmapThreads以audio_io_handle_t保存线程，所以我们可以得出如下关系图。<br><img src="https://i.imgur.com/K5J8Y6B.png" alt=""></p>
+<h3 id="打开音频输入"><a href="#打开音频输入" class="headerlink" title="打开音频输入"></a>打开音频输入</h3><p>打开音频输入和打开音频输出很类似，只是将SwAudioOutputDescriptor、PlaybackThread及AudioStreamOut换成了AudioInputDescriptor、RecordThread及AudioStreamIn，这里就一笔带过。</p>
+<h3 id="确保可用输入输出和默认输出真正可用"><a href="#确保可用输入输出和默认输出真正可用" class="headerlink" title="确保可用输入输出和默认输出真正可用"></a>确保可用输入输出和默认输出真正可用</h3><p>无其他。主要是移除不可达设备。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// make sure all attached devices have been allocated a unique ID</span></div><div class="line"><span class="comment">// 确保所有可用输出设备真正可用</span></div><div class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i  &lt; mAvailableOutputDevices.size();) &#123;</div><div class="line">    <span class="keyword">if</span> (!mAvailableOutputDevices[i]-&gt;isAttached()) &#123;</div><div class="line">        ALOGW(<span class="string">"Output device %08x unreachable"</span>, mAvailableOutputDevices[i]-&gt;type());</div><div class="line">        mAvailableOutputDevices.remove(mAvailableOutputDevices[i]);</div><div class="line">        <span class="keyword">continue</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// The device is now validated and can be appended to the available </span></div><div class="line">    <span class="comment">// devices of the engine</span></div><div class="line">    <span class="comment">// 目前不做任何处理</span></div><div class="line">    mEngine-&gt;setDeviceConnectionState(mAvailableOutputDevices[i],</div><div class="line">                                      AUDIO_POLICY_DEVICE_STATE_AVAILABLE);</div><div class="line">    i++;</div><div class="line">&#125;</div><div class="line"><span class="comment">// 确保所有可用输入设备真正可用</span></div><div class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i  &lt; mAvailableInputDevices.size();) &#123;</div><div class="line">    <span class="keyword">if</span> (!mAvailableInputDevices[i]-&gt;isAttached()) &#123;</div><div class="line">        ALOGW(<span class="string">"Input device %08x unreachable"</span>, mAvailableInputDevices[i]-&gt;type());</div><div class="line">        mAvailableInputDevices.remove(mAvailableInputDevices[i]);</div><div class="line">        <span class="keyword">continue</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// The device is now validated and can be appended to the available devices of the engine</span></div><div class="line">    <span class="comment">// 目前不做任何处理</span></div><div class="line">    mEngine-&gt;setDeviceConnectionState(mAvailableInputDevices[i],</div><div class="line">                                      AUDIO_POLICY_DEVICE_STATE_AVAILABLE);</div><div class="line">    i++;</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// make sure default device is reachable</span></div><div class="line"><span class="comment">// 确保默认输出设备真正可用</span></div><div class="line"><span class="keyword">if</span> (mDefaultOutputDevice == <span class="number">0</span> || </div><div class="line">    mAvailableOutputDevices.indexOf(mDefaultOutputDevice) &lt; <span class="number">0</span>) &#123;</div><div class="line">    ALOGE(<span class="string">"Default device %08x is unreachable"</span>, mDefaultOutputDevice-&gt;type());</div><div class="line">&#125;</div><div class="line"></div><div class="line">ALOGE_IF((mPrimaryOutput == <span class="number">0</span>), <span class="string">"Failed to open primary output"</span>);</div><div class="line">updateDevicesAndOutputs();</div></pre></td></tr></table></figure></p>
+<h2 id="AudioPolicyEffects初始化"><a href="#AudioPolicyEffects初始化" class="headerlink" title="AudioPolicyEffects初始化"></a>AudioPolicyEffects初始化</h2><p>对于音效策略，类似会先加载audio_effects.conf，这个文件可能位于system/etc/或者vendor/etc/。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">AudioPolicyEffects::AudioPolicyEffects()</div><div class="line">&#123;</div><div class="line">    <span class="comment">// load automatic audio effect modules</span></div><div class="line">    <span class="keyword">if</span> (access(AUDIO_EFFECT_VENDOR_CONFIG_FILE, R_OK) == <span class="number">0</span>) &#123;</div><div class="line">        loadAudioEffectConfig(AUDIO_EFFECT_VENDOR_CONFIG_FILE);</div><div class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (access(AUDIO_EFFECT_DEFAULT_CONFIG_FILE, R_OK) == <span class="number">0</span>) &#123;</div><div class="line">        loadAudioEffectConfig(AUDIO_EFFECT_DEFAULT_CONFIG_FILE);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这个文件的格式如下。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"># List of effect libraries to load. Each library element must contain a <span class="string">"path"</span> element</div><div class="line"><span class="meta"># giving the full path of the library .so file.</span></div><div class="line"><span class="meta">#    libraries &#123;</span></div><div class="line">#        &lt;lib name&gt; &#123;</div><div class="line"><span class="meta">#          path <span class="meta-string">&lt;lib path&gt;</span></span></div><div class="line">#        &#125;</div><div class="line">#    &#125;</div><div class="line"><span class="meta"># list of effects to load. Each effect element must contain a <span class="meta-string">"library"</span> and a <span class="meta-string">"uuid"</span> element.</span></div><div class="line"># The value of the <span class="string">"library"</span> element must correspond to the name of one library element in the</div><div class="line"># <span class="string">"libraries"</span> element.</div><div class="line"># The name of the effect element is indicative, only the value of the <span class="string">"uuid"</span> element</div><div class="line"><span class="meta"># designates the effect.</span></div><div class="line"># The uuid is the implementation specific UUID as specified by the effect vendor. This is <span class="keyword">not</span> the</div><div class="line"><span class="meta"># generic effect type UUID.</span></div><div class="line"><span class="meta">#    effects &#123;</span></div><div class="line">#        &lt;fx name&gt; &#123;</div><div class="line"><span class="meta">#            library <span class="meta-string">&lt;lib name&gt;</span></span></div><div class="line"><span class="meta">#            uuid <span class="meta-string">&lt;effect uuid&gt;</span></span></div><div class="line">#        &#125;</div><div class="line">#        ...</div><div class="line">#    &#125;</div></pre></td></tr></table></figure></p>
+<p>到这里AudioPolicyService的启动流程已经完结，且篇幅已经挺长，其他的知识点，学习到时再补上。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/11/09/AudioFlinger启动过程/" rel="next" title="AudioFlinger启动过程">
+                <i class="fa fa-chevron-left"></i> AudioFlinger启动过程
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/avatar.jpg"
+                alt="Raycco" />
+            
+              <p class="site-author-name" itemprop="name">Raycco</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">4</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">2</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          <div class="links-of-author motion-element">
+            
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/raycco" target="_blank" title="GitHub">
+                    
+                      <i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://weibo.com/SweWoo" target="_blank" title="微博">
+                    
+                      <i class="fa fa-fw fa-globe"></i>微博</a>
+                </span>
+              
+            
+          </div>
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#audiopolicy的代码结构"><span class="nav-number">1.</span> <span class="nav-text">audiopolicy的代码结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioPolicyService初始化"><span class="nav-number">2.</span> <span class="nav-text">AudioPolicyService初始化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioCommandThread线程"><span class="nav-number">3.</span> <span class="nav-text">AudioCommandThread线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioPolicyManager初始化"><span class="nav-number">4.</span> <span class="nav-text">AudioPolicyManager初始化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#audio-policy-config加载"><span class="nav-number">4.1.</span> <span class="nav-text">audio policy config加载</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#初始化Policy-Engine"><span class="nav-number">4.2.</span> <span class="nav-text">初始化Policy Engine</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#加载HW-Module"><span class="nav-number">4.3.</span> <span class="nav-text">加载HW Module</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#打开音频输出"><span class="nav-number">4.4.</span> <span class="nav-text">打开音频输出</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#打开音频输入"><span class="nav-number">4.5.</span> <span class="nav-text">打开音频输入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#确保可用输入输出和默认输出真正可用"><span class="nav-number">4.6.</span> <span class="nav-text">确保可用输入输出和默认输出真正可用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AudioPolicyEffects初始化"><span class="nav-number">5.</span> <span class="nav-text">AudioPolicyEffects初始化</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Raycco</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.3</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.3"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.3"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.3"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.3"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.3"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  
+
+    
+      <script id="dsq-count-scr" src="https://.disqus.com/count.js" async></script>
+    
+
+    
+      <script type="text/javascript">
+        var disqus_config = function () {
+          this.page.url = 'http://yoursite.com/2017/11/10/AudioPolicyService启动过程/';
+          this.page.identifier = '2017/11/10/AudioPolicyService启动过程/';
+          this.page.title = 'AudioPolicyService启动过程';
+        };
+        var d = document, s = d.createElement('script');
+        s.src = 'https://.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      </script>
+    
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("seh2gCOupF9nMssA4XsfpjwJ-gzGzoHsz", "U2GBcKwy5DiTjcVUyKyUCCuX");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
