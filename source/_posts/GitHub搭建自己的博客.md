@@ -3,7 +3,7 @@ title: GitHub搭建个人的博客
 tags: [hexo, github]
 categories: 搭建博客
 ---
-本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。
+最近突然间发现，自己过去看过的东西，没过多久就忘得一干二净，每当要用时，又得从头来一遍，真是好记性不如烂笔头，所以有了写笔记的想法，GitHub上可以方便记录自己一切想记录的，于是就在GitHub上开始写笔记，希望自己不要把知识忘得太快。本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。
 ## 安装Node.js
 在nodejs官网下载对应的版本安装
 下载地址：[https://nodejs.org/en/download](https://nodejs.org/en/download)
@@ -107,6 +107,9 @@ _config.yml中配置部署
 ### 换PC管理博客
     $ git clone -b hexo https://github.com/[yourname]/[yourname].github.io
 在[yourname].github.io中从新安装hexo，就可以写博客及发布博客了。
+
+### 参考
+Next主题配置参考：[http://theme-next.iissnan.com/theme-settings.html](http://theme-next.iissnan.com/theme-settings.html)
 
 
 

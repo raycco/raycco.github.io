@@ -5,7 +5,7 @@ tags: Android
 categories: Android Audio
 ---
 
-audioserver源代码的位置位于frameworks/av/media/audioserver
+Android audioserver是Audio系统native的服务，也是连接Audio Framework和Audio HAL的一个纽带，其中包含了AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService等服务。源代码位于frameworks/av/media/audioserver
 
 从Android 7.0开始，Audio相关的service从mediaserver中转移到audioserver，把audio，camera及mediaplayerservice做了一个拆分，这样不会显得臃肿、职能更加独立且安全性更高。拆分之后audioserver还是一个native service，还是从init进程中启动，如下是其在audioserver.rc中的启动代码。
 
@@ -57,17 +57,43 @@ int main(int argc __unused, char **argv)
    }
 }
 ```
-从如上代码可以看出，audioserver中回依次实例化AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService并添加到ServiceManager中。
+从如上代码可以看出，audioserver中回依次执行AudioFlinger、AudioPolicyService、AAudioService、RadioService、SoundTriggerHwService的instantiate函数。通过阅读源代码，由于继承的缘故这个五个service最终会调用BinderService的instantiate函数且将自己注册到ServiceManager中，后续client端可以通过service注册时用的name从ServiceManager返回server端。
+```cpp
+template<typename SERVICE>
+class BinderService
+{
+public:
+    static status_t publish(bool allowIsolated = false) {
+        sp<IServiceManager> sm(defaultServiceManager());
+        return sm->addService(
+                String16(SERVICE::getServiceName()),
+                new SERVICE(), allowIsolated);
+    }
 
-AudioFlinger：Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。
+    static void publishAndJoinThreadPool(bool allowIsolated = false) {
+        publish(allowIsolated);
+        joinThreadPool();
+    }
 
-AudioPolicyService：音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。
+    static void instantiate() { publish(); }
 
-AAudioService：这是Android 8.0加入角色，是OpenSL ES的另外一种选择，需要低延迟的高性能音频应用的另外一种选择。
+    static status_t shutdown() { return NO_ERROR; }
 
-RadioService：与FM相关的一个服务。
+private:
+    static void joinThreadPool() {
+        sp<ProcessState> ps(ProcessState::self());
+        ps->startThreadPool();
+        ps->giveThreadPoolName();
+        IPCThreadState::self()->joinThreadPool();
+    }
+};
+```
+AudioFlinger（media.audio_flinger）：Audio系统的一个核心服务，是音频策略的执行者，负责输入输出流设备的管理及音频流数据的处理传输。
 
-SoundTriggerHwService：Android语音识别的native服务。
+AudioPolicyService（media.audio_policy）：音频策略的制定者，负责音频设备切换的策略抉择、音量调节策略等。
 
-参考：
-[http://blog.csdn.net/fu_kevin0606/article/details/53383031](http://blog.csdn.net/fu_kevin0606/article/details/53383031)
+AAudioService（media.aaudio）：这是Android 8.0加入角色，是OpenSL ES的另外一种选择，需要低延迟的高性能音频应用的另外一种选择。
+
+RadioService（media.radio）：与FM相关的一个服务。
+
+SoundTriggerHwService（media.sound_trigger_hw）：Android语音识别的native服务。
