@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.3" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.3">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.3">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.3" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Android," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Raycco's Notes" type="application/atom+xml" />
+
+
+
+
+
+
+<meta name="description" content="我们知道硬件抽象层（HAL）是连接driver和native的桥梁，数据会从native层到HAL层，最终写入kernel。然而8.0之前的HAL和native处于同一进程，耦合度比较高。所以在Android 8.0，google对HAL做了重构，将HAL放在独立的进程，和native通过binder通信。下面我们就看看Android Audio HAL server的启动。 Audio HAL">
+<meta name="keywords" content="Android">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Android Audio HAL server启动">
+<meta property="og:url" content="http://yoursite.com/2017/11/28/Android-Audio-HAL-server启动过程/index.html">
+<meta property="og:site_name" content="Raycco&#39;s Notes">
+<meta property="og:description" content="我们知道硬件抽象层（HAL）是连接driver和native的桥梁，数据会从native层到HAL层，最终写入kernel。然而8.0之前的HAL和native处于同一进程，耦合度比较高。所以在Android 8.0，google对HAL做了重构，将HAL放在独立的进程，和native通过binder通信。下面我们就看看Android Audio HAL server的启动。 Audio HAL">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2017-12-05T09:55:31.366Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Android Audio HAL server启动">
+<meta name="twitter:description" content="我们知道硬件抽象层（HAL）是连接driver和native的桥梁，数据会从native层到HAL层，最终写入kernel。然而8.0之前的HAL和native处于同一进程，耦合度比较高。所以在Android 8.0，google对HAL做了重构，将HAL放在独立的进程，和native通过binder通信。下面我们就看看Android Audio HAL server的启动。 Audio HAL">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.3',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/11/28/Android-Audio-HAL-server启动过程/"/>
+
+
+
+
+
+  <title>Android Audio HAL server启动 | Raycco's Notes</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Raycco's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">Quick Notes</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/11/28/Android-Audio-HAL-server启动过程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Raycco">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Raycco's Notes">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Android Audio HAL server启动</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-28T10:41:54+08:00">
+                2017-11-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Android-Audio-HAL/" itemprop="url" rel="index">
+                    <span itemprop="name">Android Audio HAL</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2017/11/28/Android-Audio-HAL-server启动过程/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count disqus-comment-count"
+                        data-disqus-identifier="2017/11/28/Android-Audio-HAL-server启动过程/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+             <span id="/2017/11/28/Android-Audio-HAL-server启动过程/" class="leancloud_visitors" data-flag-title="Android Audio HAL server启动">
+               <span class="post-meta-divider">|</span>
+               <span class="post-meta-item-icon">
+                 <i class="fa fa-eye"></i>
+               </span>
+               
+                 <span class="post-meta-item-text">阅读次数&#58;</span>
+               
+                 <span class="leancloud-visitors-count"></span>
+             </span>
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>我们知道硬件抽象层（HAL）是连接driver和native的桥梁，数据会从native层到HAL层，最终写入kernel。然而8.0之前的HAL和native处于同一进程，耦合度比较高。所以在Android 8.0，google对HAL做了重构，将HAL放在独立的进程，和native通过binder通信。下面我们就看看Android Audio HAL server的启动。</p>
+<h2 id="Audio-HAL-server启动"><a href="#Audio-HAL-server启动" class="headerlink" title="Audio HAL server启动"></a>Audio HAL server启动</h2><p>同样Android Audio HAL server（audio-hal-2-0）从init进程启动，不过audio-hal-2-0的可执行文件在vendor分区，这也是为了降低耦合度，因为HAL一般由OEM/ODM实现，google不想HAL影响到Framework的更新，所以希望尽量将OEM/ODM的实现放到vendor分区，由这些厂商自己维护。<br><figure class="highlight sh"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">service audio-hal-2-0 /vendor/bin/hw/android.hardware.audio@2.0-service</div><div class="line">    class hal                                   <span class="comment"># audio-hal-2-0和class hal行为一致</span></div><div class="line">    user audioserver                            <span class="comment"># 用户归属，uid：AID_AUDIOSERVER</span></div><div class="line">    <span class="comment"># media gid needed for /dev/fm (radio) and for /data/misc/media (tee)</span></div><div class="line">    group audio camera drmrpc inet media mediadrm net_bt \</div><div class="line">                       net_bt_admin net_bw_acct <span class="comment"># 用户组归属</span></div><div class="line">    ioprio rt 4                                 <span class="comment"># io调度优先级</span></div><div class="line">    <span class="comment"># 当子进程被创建的时候，将子进程的pid写入到给定的文件中,cgroup/cpuset用法</span></div><div class="line">    writepid /dev/cpuset/foreground/tasks /dev/stune/foreground/tasks</div><div class="line">    <span class="comment"># audioflinger restarts itself when it loses connection with the hal</span></div><div class="line">    <span class="comment"># and its .rc file has an "onrestart restart audio-hal" rule, thus</span></div><div class="line">    <span class="comment"># an additional auto-restart from the init process isn't needed.</span></div><div class="line">    oneshot                                     <span class="comment"># 当此服务退出时不会自动重启</span></div></pre></td></tr></table></figure></p>
+<p>我们看到audio-hal-2-0的启动代码有IDevicesFactory，IEffectsFactory，ISoundTriggerHw及IBroadcastRadioFactory，这和native的audioserver相对应。且代码有一种熟悉的感觉，和audioserver的启动很相似，只是具体实现有些不一样，这里通过registerPassthroughServiceImplementation将如上四个服务注册到hwservicemanager，以供native调用。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> <span class="comment">/* argc */</span>, <span class="keyword">char</span>* <span class="comment">/* argv */</span> [])</span> </span>&#123;</div><div class="line">    configureRpcThreadpool(<span class="number">16</span>, <span class="literal">true</span> <span class="comment">/*callerWillJoin*/</span>);</div><div class="line">    android::<span class="keyword">status_t</span> status;</div><div class="line">    status = registerPassthroughServiceImplementation&lt;IDevicesFactory&gt;();</div><div class="line">    LOG_ALWAYS_FATAL_IF(status != OK, <span class="string">"Error while registering audio service: %d"</span>, status);</div><div class="line">    status = registerPassthroughServiceImplementation&lt;IEffectsFactory&gt;();</div><div class="line">    LOG_ALWAYS_FATAL_IF(status != OK, <span class="string">"Error while registering audio effects </span></div><div class="line"><span class="string">                                                         service: %d"</span>, status);</div><div class="line">    <span class="comment">// Soundtrigger and FM radio might be not present.</span></div><div class="line">    status = registerPassthroughServiceImplementation&lt;ISoundTriggerHw&gt;();</div><div class="line">    ALOGE_IF(status != OK, <span class="string">"Error while registering soundtrigger service: %d"</span>, status);</div><div class="line">    <span class="keyword">if</span> (useBroadcastRadioFutureFeatures) &#123;</div><div class="line">        status = registerPassthroughServiceImplementation&lt;</div><div class="line">            broadcastradio::V1_1::IBroadcastRadioFactory&gt;();</div><div class="line">    &#125; <span class="keyword">else</span> &#123;</div><div class="line">        status = registerPassthroughServiceImplementation&lt;</div><div class="line">            broadcastradio::V1_0::IBroadcastRadioFactory&gt;();</div><div class="line">    &#125;</div><div class="line">    ALOGE_IF(status != OK, <span class="string">"Error while registering fm radio service: %d"</span>, status);</div><div class="line">    joinRpcThreadpool();</div><div class="line">    <span class="keyword">return</span> status;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h2 id="IDevicesFactory注册到hwservicemanager"><a href="#IDevicesFactory注册到hwservicemanager" class="headerlink" title="IDevicesFactory注册到hwservicemanager"></a>IDevicesFactory注册到hwservicemanager</h2><p>在如上的启动代码中我们看到，HAL服务端调用registerPassthroughServiceImplementation实现注册，这函数的实现在system/libhidl/transport/include/hidl/LegacySupport.h,这是一个模板方法，这里传入IDevicesFactory接口。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/**</span></div><div class="line"><span class="comment"> * Registers passthrough service implementation.</span></div><div class="line"><span class="comment"> */</span></div><div class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">Interface</span>&gt;</span></div><div class="line"><span class="class">__<span class="title">attribute__</span>((<span class="title">warn_unused_result</span>))</span></div><div class="line"><span class="class"><span class="title">status_t</span> <span class="title">registerPassthroughServiceImplementation</span>(</span></div><div class="line"><span class="class">        <span class="title">std</span>:</span>:<span class="built_in">string</span> name = <span class="string">"default"</span>) &#123;</div><div class="line">    sp&lt;Interface&gt; service = Interface::getService(name, <span class="literal">true</span> <span class="comment">/* getStub */</span>);</div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="keyword">status_t</span> status = service-&gt;registerAsService(name);</div><div class="line">    </div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="keyword">return</span> status;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>所以首先会调用IDevicesFactory的getService方法。在IDevicesFactory.h中看到有getService方法的声明，在DevicesFactoryAll.cpp中有此方法的实现，最后会返回BsDevicesFactory实例。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">const</span> <span class="keyword">char</span>* IDevicesFactory::descriptor(<span class="string">"android.hardware.audio@2.0::IDevicesFactory"</span>);</div><div class="line"></div><div class="line">::android::sp&lt;IDevicesFactory&gt; IDevicesFactory::getService(</div><div class="line">                       <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;serviceName, <span class="keyword">const</span> <span class="keyword">bool</span> getStub) &#123;</div><div class="line">    <span class="keyword">using</span> ::android::hardware::defaultServiceManager;</div><div class="line">    <span class="keyword">using</span> ::android::hardware::details::waitForHwService;</div><div class="line">    <span class="keyword">using</span> ::android::hardware::getPassthroughServiceManager;</div><div class="line">    <span class="keyword">using</span> ::android::hardware::Return;</div><div class="line">    <span class="keyword">using</span> ::android::sp;</div><div class="line">    <span class="keyword">using</span> Transport = ::android::hidl::manager::V1_0::IServiceManager::Transport;</div><div class="line"></div><div class="line">    sp&lt;IDevicesFactory&gt; iface = <span class="literal">nullptr</span>;</div><div class="line"></div><div class="line">    ......</div><div class="line"></div><div class="line">    <span class="keyword">if</span> (getStub || vintfPassthru || vintfLegacy) &#123;</div><div class="line">        <span class="keyword">const</span> sp&lt;::android::hidl::manager::V1_0::IServiceManager&gt; pm = </div><div class="line">                                             getPassthroughServiceManager();</div><div class="line">        <span class="keyword">if</span> (pm != <span class="literal">nullptr</span>) &#123;</div><div class="line">            Return&lt;sp&lt;::android::hidl::base::V1_0::IBase&gt;&gt; ret = </div><div class="line">                    pm-&gt;get(IDevicesFactory::descriptor, serviceName);</div><div class="line">            <span class="keyword">if</span> (ret.isOk()) &#123;</div><div class="line">                sp&lt;::android::hidl::base::V1_0::IBase&gt; baseInterface = ret;</div><div class="line">                <span class="keyword">if</span> (baseInterface != <span class="literal">nullptr</span>) &#123;</div><div class="line">                    iface = <span class="keyword">new</span> BsDevicesFactory(IDevicesFactory::castFrom(baseInterface));</div><div class="line">                &#125;</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> iface;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里getStub为true，所以前面一段代码不会执行，直接创建PassthroughServiceManager，PassthroughServiceManager的实现在system/libhidl/transport/ServiceManagement.cpp，然后执行其get方法。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div></pre></td><td class="code"><pre><div class="line">Return&lt;sp&lt;IBase&gt;&gt; get(<span class="keyword">const</span> hidl_string&amp; fqName,</div><div class="line">                      <span class="keyword">const</span> hidl_string&amp; name) override &#123;</div><div class="line">    std::string stdFqName(fqName.c_str());</div><div class="line">    <span class="comment">//fqName looks like android.hardware.foo@1.0::IFoo</span></div><div class="line">    <span class="keyword">size_t</span> idx = stdFqName.find(<span class="string">"::"</span>);</div><div class="line">    <span class="keyword">if</span> (idx == <span class="built_in">std</span>::<span class="built_in">string</span>::npos ||</div><div class="line">            idx + <span class="built_in">strlen</span>(<span class="string">"::"</span>) + <span class="number">1</span> &gt;= stdFqName.size()) &#123;</div><div class="line">        LOG(ERROR) &lt;&lt; <span class="string">"Invalid interface name passthrough lookup: "</span> &lt;&lt; fqName;</div><div class="line">        <span class="keyword">return</span> <span class="literal">nullptr</span>;</div><div class="line">    &#125;</div><div class="line">    <span class="comment">// packageAndVersion为android.hardware.audio@2.0</span></div><div class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> packageAndVersion = stdFqName.substr(<span class="number">0</span>, idx);</div><div class="line"></div><div class="line">    <span class="comment">// ifaceName为IDevicesFactory</span></div><div class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> ifaceName = stdFqName.substr(idx + <span class="built_in">strlen</span>(<span class="string">"::"</span>));</div><div class="line"></div><div class="line">    <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> prefix = packageAndVersion + <span class="string">"-impl"</span>;</div><div class="line">    <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> sym = <span class="string">"HIDL_FETCH_"</span> + ifaceName;</div><div class="line">    <span class="keyword">const</span> <span class="keyword">android_namespace_t</span>* sphal_namespace = android_get_exported_namespace(<span class="string">"sphal"</span>);</div><div class="line">    <span class="keyword">const</span> <span class="keyword">int</span> dlMode = RTLD_LAZY;</div><div class="line">    <span class="keyword">void</span> *handle = <span class="literal">nullptr</span>;</div><div class="line">    <span class="comment">// <span class="doctag">TODO:</span> lookup in VINTF instead</span></div><div class="line">    <span class="comment">// TODO(b/34135607): Remove HAL_LIBRARY_PATH_SYSTEM</span></div><div class="line">    dlerror(); <span class="comment">// clear</span></div><div class="line">    </div><div class="line">    <span class="comment">// 在/odm/lib(64)/hw/，/vendor/lib(64)/hw/，/system/lib(64)/hw/</span></div><div class="line">    <span class="comment">// 寻找android.hardware.audio@2.0-impl.so并用dlopen打开，执行</span></div><div class="line">    <span class="comment">// HIDL_FETCH_IDevicesFactory函数,创建DevicesFactory实例</span></div><div class="line">    <span class="keyword">for</span> (<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;path : &#123;</div><div class="line">        HAL_LIBRARY_PATH_ODM, HAL_LIBRARY_PATH_VENDOR, HAL_LIBRARY_PATH_SYSTEM</div><div class="line">    &#125;) &#123;</div><div class="line">        <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; libs = search(path, prefix, <span class="string">".so"</span>);</div><div class="line">        <span class="keyword">for</span> (<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;lib : libs) &#123;</div><div class="line">            <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> fullPath = path + lib;</div><div class="line">            <span class="comment">// If sphal namespace is available, try to load from the</span></div><div class="line">            <span class="comment">// namespace first. If it fails, fall back to the original</span></div><div class="line">            <span class="comment">// dlopen, which loads from the current namespace.</span></div><div class="line">            <span class="keyword">if</span> (sphal_namespace != <span class="literal">nullptr</span> &amp;&amp; path != HAL_LIBRARY_PATH_SYSTEM) &#123;</div><div class="line">                <span class="keyword">const</span> android_dlextinfo dlextinfo = &#123;</div><div class="line">                    .flags = ANDROID_DLEXT_USE_NAMESPACE,</div><div class="line">                    <span class="comment">// const_cast is dirty but required because</span></div><div class="line">                    <span class="comment">// library_namespace field is non-const.</span></div><div class="line">                    .library_namespace = <span class="keyword">const_cast</span>&lt;<span class="keyword">android_namespace_t</span>*&gt;(sphal_namespace),</div><div class="line">                &#125;;</div><div class="line">                handle = android_dlopen_ext(fullPath.c_str(), dlMode, &amp;dlextinfo);</div><div class="line">                <span class="keyword">if</span> (handle == <span class="literal">nullptr</span>) &#123;</div><div class="line">                    <span class="keyword">const</span> <span class="keyword">char</span>* error = dlerror();</div><div class="line">                    LOG(WARNING) &lt;&lt; <span class="string">"Failed to dlopen "</span> &lt;&lt; lib &lt;&lt; <span class="string">" from sphal namespace:"</span></div><div class="line">                                 &lt;&lt; (error == <span class="literal">nullptr</span> ? <span class="string">"unknown error"</span> : error);</div><div class="line">                &#125; <span class="keyword">else</span> &#123;</div><div class="line">                    LOG(DEBUG) &lt;&lt; lib &lt;&lt; <span class="string">" loaded from sphal namespace."</span>;</div><div class="line">                &#125;</div><div class="line">            &#125;</div><div class="line">            <span class="keyword">if</span> (handle == <span class="literal">nullptr</span>) &#123;</div><div class="line">                handle = dlopen(fullPath.c_str(), dlMode);</div><div class="line">            &#125;</div><div class="line">            <span class="keyword">if</span> (handle == <span class="literal">nullptr</span>) &#123;</div><div class="line">                <span class="keyword">const</span> <span class="keyword">char</span>* error = dlerror();</div><div class="line">                LOG(ERROR) &lt;&lt; <span class="string">"Failed to dlopen "</span> &lt;&lt; lib &lt;&lt; <span class="string">": "</span></div><div class="line">                           &lt;&lt; (error == <span class="literal">nullptr</span> ? <span class="string">"unknown error"</span> : error);</div><div class="line">                <span class="keyword">continue</span>;</div><div class="line">            &#125;</div><div class="line">            IBase* (*generator)(<span class="keyword">const</span> <span class="keyword">char</span>* name);</div><div class="line">            *(<span class="keyword">void</span> **)(&amp;generator) = dlsym(handle, sym.c_str());</div><div class="line">            <span class="keyword">if</span>(!generator) &#123;</div><div class="line">                <span class="keyword">const</span> <span class="keyword">char</span>* error = dlerror();</div><div class="line">                LOG(ERROR) &lt;&lt; <span class="string">"Passthrough lookup opened "</span> &lt;&lt; lib</div><div class="line">                           &lt;&lt; <span class="string">" but could not find symbol "</span> &lt;&lt; sym &lt;&lt; <span class="string">": "</span></div><div class="line">                           &lt;&lt; (error == <span class="literal">nullptr</span> ? <span class="string">"unknown error"</span> : error);</div><div class="line">                dlclose(handle);</div><div class="line">                <span class="keyword">continue</span>;</div><div class="line">            &#125;</div><div class="line">            IBase *interface = (*generator)(name.c_str());</div><div class="line">            <span class="keyword">if</span> (interface == <span class="literal">nullptr</span>) &#123;</div><div class="line">                dlclose(handle);</div><div class="line">                <span class="keyword">continue</span>; <span class="comment">// this module doesn't provide this instance name</span></div><div class="line">            &#125;</div><div class="line">            registerReference(fqName, name);</div><div class="line">            <span class="keyword">return</span> interface;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="literal">nullptr</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>根据android.hardware.audio@2.0::IDevicesFactory字串拼接出android.hardware.audio@2.0-impl.so并找到打开，执行HIDL_FETCH_IDevicesFactory函数创建DevicesFactory返回。得到BsDevicesFactory实例后，会执行其registerAsService。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line">::android::<span class="keyword">status_t</span> IDevicesFactory::registerAsService(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span> &amp;serviceName) &#123;</div><div class="line">    ::android::hardware::details::onRegistration(</div><div class="line">                       <span class="string">"android.hardware.audio@2.0"</span>, <span class="string">"IDevicesFactory"</span>, serviceName);</div><div class="line"></div><div class="line">    <span class="keyword">const</span> ::android::sp&lt;::android::hidl::manager::V1_0::IServiceManager&gt; sm</div><div class="line">            = ::android::hardware::defaultServiceManager();</div><div class="line">    <span class="keyword">if</span> (sm == <span class="literal">nullptr</span>) &#123;</div><div class="line">        <span class="keyword">return</span> ::android::INVALID_OPERATION;</div><div class="line">    &#125;</div><div class="line">    ::android::hardware::Return&lt;<span class="keyword">bool</span>&gt; ret = sm-&gt;add(serviceName.c_str(), <span class="keyword">this</span>);</div><div class="line">    <span class="keyword">return</span> ret.isOk() &amp;&amp; ret ? ::android::OK : ::android::UNKNOWN_ERROR;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>获取HwServiceManager将自己注册到hwservicemanager。这里涉及binder通信机制，关于binder通信，是另外一个比较大的topic，在这里一两句说不清楚，所以后续有时间再专门记录。</p>
+<h2 id="加载HAL-so"><a href="#加载HAL-so" class="headerlink" title="加载HAL so"></a>加载HAL so</h2><p>回想在AudioPolicyService启动的时候，会mDevicesFactoryHal-&gt;openDevice(name, &amp;dev),其实最终会调用DevicesFactory的loadAudioInterface，即打开audio.primary.default.so等lib。<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">int</span> DevicesFactory::loadAudioInterface(<span class="keyword">const</span> <span class="keyword">char</span> *if_name, <span class="keyword">audio_hw_device_t</span> **dev)</div><div class="line">&#123;</div><div class="line">    <span class="keyword">const</span> <span class="keyword">hw_module_t</span> *mod;</div><div class="line">    <span class="keyword">int</span> rc;</div><div class="line">    rc = hw_get_module_by_class(AUDIO_HARDWARE_MODULE_ID, if_name, &amp;mod);</div><div class="line">    <span class="keyword">if</span> (rc) &#123;</div><div class="line">        ALOGE(<span class="string">"%s couldn't load audio hw module %s.%s (%s)"</span>, __func__,</div><div class="line">                AUDIO_HARDWARE_MODULE_ID, if_name, strerror(-rc));</div><div class="line">        <span class="keyword">goto</span> out;</div><div class="line">    &#125;</div><div class="line">    rc = audio_hw_device_open(mod, dev);</div><div class="line">    <span class="keyword">if</span> (rc) &#123;</div><div class="line">        ALOGE(<span class="string">"%s couldn't open audio hw device in %s.%s (%s)"</span>, __func__,</div><div class="line">                AUDIO_HARDWARE_MODULE_ID, if_name, strerror(-rc));</div><div class="line">        <span class="keyword">goto</span> out;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">if</span> ((*dev)-&gt;common.version &lt; AUDIO_DEVICE_API_VERSION_MIN) &#123;</div><div class="line">        ALOGE(<span class="string">"%s wrong audio hw device version %04x"</span>, __func__, (*dev)-&gt;common.version);</div><div class="line">        rc = -EINVAL;</div><div class="line">        audio_hw_device_close(*dev);</div><div class="line">        <span class="keyword">goto</span> out;</div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> OK;</div><div class="line">out:</div><div class="line">    *dev = <span class="literal">NULL</span>;</div><div class="line">    <span class="keyword">return</span> rc;</div><div class="line">&#125;</div><div class="line"><span class="comment">// Methods from ::android::hardware::audio::V2_0::IDevicesFactory follow.</span></div><div class="line">Return&lt;<span class="keyword">void</span>&gt; DevicesFactory::openDevice(IDevicesFactory::Device device, </div><div class="line">                                        openDevice_cb _hidl_cb)  &#123;</div><div class="line">    <span class="keyword">audio_hw_device_t</span> *halDevice;</div><div class="line">    <span class="function">Result <span class="title">retval</span><span class="params">(Result::INVALID_ARGUMENTS)</span></span>;</div><div class="line">    sp&lt;IDevice&gt; result;</div><div class="line">    <span class="keyword">const</span> <span class="keyword">char</span>* moduleName = deviceToString(device);</div><div class="line">    <span class="keyword">if</span> (moduleName != <span class="literal">nullptr</span>) &#123;</div><div class="line">        <span class="keyword">int</span> halStatus = loadAudioInterface(moduleName, &amp;halDevice);</div><div class="line">        <span class="keyword">if</span> (halStatus == OK) &#123;</div><div class="line">            <span class="keyword">if</span> (device == IDevicesFactory::Device::PRIMARY) &#123;</div><div class="line">                result = <span class="keyword">new</span> PrimaryDevice(halDevice);</div><div class="line">            &#125; <span class="keyword">else</span> &#123;</div><div class="line">                result = <span class="keyword">new</span> ::android::hardware::audio::V2_0::implementation::</div><div class="line">                    Device(halDevice);</div><div class="line">            &#125;</div><div class="line">            retval = Result::OK;</div><div class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (halStatus == -EINVAL) &#123;</div><div class="line">            retval = Result::NOT_INITIALIZED;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    _hidl_cb(retval, result);</div><div class="line">    <span class="keyword">return</span> Void();</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Android/" rel="tag"># Android</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/11/24/Android-Audio-HIDL-C++/" rel="next" title="Android Audio HIDL C++">
+                <i class="fa fa-chevron-left"></i> Android Audio HIDL C++
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+    <div class="comments" id="comments">
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image"
+                src="/images/avatar.jpg"
+                alt="Raycco" />
+            
+              <p class="site-author-name" itemprop="name">Raycco</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">6</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          <div class="links-of-author motion-element">
+            
+              
+                <span class="links-of-author-item">
+                  <a href="https://github.com/raycco" target="_blank" title="GitHub">
+                    
+                      <i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  <a href="https://weibo.com/SweWoo" target="_blank" title="微博">
+                    
+                      <i class="fa fa-fw fa-globe"></i>微博</a>
+                </span>
+              
+            
+          </div>
+
+          
+          
+
+          
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Audio-HAL-server启动"><span class="nav-number">1.</span> <span class="nav-text">Audio HAL server启动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IDevicesFactory注册到hwservicemanager"><span class="nav-number">2.</span> <span class="nav-text">IDevicesFactory注册到hwservicemanager</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#加载HAL-so"><span class="nav-number">3.</span> <span class="nav-text">加载HAL so</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Raycco</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.3</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.3"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.3"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.3"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.3"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.3"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.3"></script>
+
+
+
+  
+
+
+  
+
+    
+      <script id="dsq-count-scr" src="https://.disqus.com/count.js" async></script>
+    
+
+    
+      <script type="text/javascript">
+        var disqus_config = function () {
+          this.page.url = 'http://yoursite.com/2017/11/28/Android-Audio-HAL-server启动过程/';
+          this.page.identifier = '2017/11/28/Android-Audio-HAL-server启动过程/';
+          this.page.title = 'Android Audio HAL server启动';
+        };
+        var d = document, s = d.createElement('script');
+        s.src = 'https://.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      </script>
+    
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+  <script src="https://cdn1.lncld.net/static/js/av-core-mini-0.6.4.js"></script>
+  <script>AV.initialize("seh2gCOupF9nMssA4XsfpjwJ-gzGzoHsz", "U2GBcKwy5DiTjcVUyKyUCCuX");</script>
+  <script>
+    function showTime(Counter) {
+      var query = new AV.Query(Counter);
+      var entries = [];
+      var $visitors = $(".leancloud_visitors");
+
+      $visitors.each(function () {
+        entries.push( $(this).attr("id").trim() );
+      });
+
+      query.containedIn('url', entries);
+      query.find()
+        .done(function (results) {
+          var COUNT_CONTAINER_REF = '.leancloud-visitors-count';
+
+          if (results.length === 0) {
+            $visitors.find(COUNT_CONTAINER_REF).text(0);
+            return;
+          }
+
+          for (var i = 0; i < results.length; i++) {
+            var item = results[i];
+            var url = item.get('url');
+            var time = item.get('time');
+            var element = document.getElementById(url);
+
+            $(element).find(COUNT_CONTAINER_REF).text(time);
+          }
+          for(var i = 0; i < entries.length; i++) {
+            var url = entries[i];
+            var element = document.getElementById(url);
+            var countSpan = $(element).find(COUNT_CONTAINER_REF);
+            if( countSpan.text() == '') {
+              countSpan.text(0);
+            }
+          }
+        })
+        .fail(function (object, error) {
+          console.log("Error: " + error.code + " " + error.message);
+        });
+    }
+
+    function addCount(Counter) {
+      var $visitors = $(".leancloud_visitors");
+      var url = $visitors.attr('id').trim();
+      var title = $visitors.attr('data-flag-title').trim();
+      var query = new AV.Query(Counter);
+
+      query.equalTo("url", url);
+      query.find({
+        success: function(results) {
+          if (results.length > 0) {
+            var counter = results[0];
+            counter.fetchWhenSave(true);
+            counter.increment("time");
+            counter.save(null, {
+              success: function(counter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(counter.get('time'));
+              },
+              error: function(counter, error) {
+                console.log('Failed to save Visitor num, with error message: ' + error.message);
+              }
+            });
+          } else {
+            var newcounter = new Counter();
+            /* Set ACL */
+            var acl = new AV.ACL();
+            acl.setPublicReadAccess(true);
+            acl.setPublicWriteAccess(true);
+            newcounter.setACL(acl);
+            /* End Set ACL */
+            newcounter.set("title", title);
+            newcounter.set("url", url);
+            newcounter.set("time", 1);
+            newcounter.save(null, {
+              success: function(newcounter) {
+                var $element = $(document.getElementById(url));
+                $element.find('.leancloud-visitors-count').text(newcounter.get('time'));
+              },
+              error: function(newcounter, error) {
+                console.log('Failed to create');
+              }
+            });
+          }
+        },
+        error: function(error) {
+          console.log('Error:' + error.code + " " + error.message);
+        }
+      });
+    }
+
+    $(function() {
+      var Counter = AV.Object.extend("Counter");
+      if ($('.leancloud_visitors').length == 1) {
+        addCount(Counter);
+      } else if ($('.post-title-link').length > 1) {
+        showTime(Counter);
+      }
+    });
+  </script>
+
+
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
