@@ -108,6 +108,11 @@ _config.yml中配置部署
     $ git clone -b hexo https://github.com/[yourname]/[yourname].github.io
 在[yourname].github.io中从新安装hexo，就可以写博客及发布博客了。
 
+### issues
+fatal: unable to access 'https://github.com/[yourname]/[yourname].github.io/': SSL certificate problem: unable to get local issuer certificate
+
+    $ git config --global http.sslVerify false
+
 ### 参考
 Next主题配置参考：[http://theme-next.iissnan.com/theme-settings.html](http://theme-next.iissnan.com/theme-settings.html)
 
