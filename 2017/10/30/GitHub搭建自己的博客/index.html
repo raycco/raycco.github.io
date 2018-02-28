@@ -89,7 +89,7 @@
 <meta property="og:site_name" content="Raycco&#39;s Notes">
 <meta property="og:description" content="最近突然间发现，自己过去看过的东西，没过多久就忘得一干二净，每当要用时，又得从头来一遍，真是好记性不如烂笔头，所以有了写笔记的想法，GitHub上可以方便记录自己一切想记录的，于是就在GitHub上开始写笔记，希望自己不要把知识忘得太快。本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。 安装Node.js在nodejs官网下载对应的版本安装下载地址：https://nodej">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2017-11-19T09:52:02.501Z">
+<meta property="og:updated_time" content="2018-01-25T12:59:25.922Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="GitHub搭建个人的博客">
 <meta name="twitter:description" content="最近突然间发现，自己过去看过的东西，没过多久就忘得一干二净，每当要用时，又得从头来一遍，真是好记性不如烂笔头，所以有了写笔记的想法，GitHub上可以方便记录自己一切想记录的，于是就在GitHub上开始写笔记，希望自己不要把知识忘得太快。本文记录在Windows环境下使用Hexo搭建GitHub博客的过程。 安装Node.js在nodejs官网下载对应的版本安装下载地址：https://nodej">
@@ -477,7 +477,9 @@ $ hexo generate //生成静态文件
 $ hexo deploy   //部署
 </code></pre><h3 id="换PC管理博客"><a href="#换PC管理博客" class="headerlink" title="换PC管理博客"></a>换PC管理博客</h3><pre><code>$ git clone -b hexo https://github.com/[yourname]/[yourname].github.io
 </code></pre><p>在[yourname].github.io中从新安装hexo，就可以写博客及发布博客了。</p>
-<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>Next主题配置参考：<a href="http://theme-next.iissnan.com/theme-settings.html" target="_blank" rel="external">http://theme-next.iissnan.com/theme-settings.html</a></p>
+<h3 id="issues"><a href="#issues" class="headerlink" title="issues"></a>issues</h3><p>fatal: unable to access ‘<a href="https://github.com/[yourname]/[yourname].github.io/" target="_blank" rel="external">https://github.com/[yourname]/[yourname].github.io/</a>‘: SSL certificate problem: unable to get local issuer certificate</p>
+<pre><code>$ git config --global http.sslVerify false
+</code></pre><h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>Next主题配置参考：<a href="http://theme-next.iissnan.com/theme-settings.html" target="_blank" rel="external">http://theme-next.iissnan.com/theme-settings.html</a></p>
 
       
     </div>
@@ -609,7 +611,7 @@ $ hexo deploy   //部署
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">8</span>
+                  <span class="site-state-item-count">9</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -687,7 +689,7 @@ $ hexo deploy   //部署
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#安装Node-js"><span class="nav-number">1.</span> <span class="nav-text">安装Node.js</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装Git"><span class="nav-number">2.</span> <span class="nav-text">安装Git</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建GitHub账户"><span class="nav-number">3.</span> <span class="nav-text">创建GitHub账户</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建GitHub仓库"><span class="nav-number">4.</span> <span class="nav-text">创建GitHub仓库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置Hexo"><span class="nav-number">5.</span> <span class="nav-text">配置Hexo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置ssh-key"><span class="nav-number">6.</span> <span class="nav-text">配置ssh key</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置git信息"><span class="nav-number">7.</span> <span class="nav-text">配置git信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用Hexo管理博客"><span class="nav-number">8.</span> <span class="nav-text">使用Hexo管理博客</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#初始化博客"><span class="nav-number">8.1.</span> <span class="nav-text">初始化博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置博客"><span class="nav-number">8.2.</span> <span class="nav-text">配置博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#发布博客"><span class="nav-number">8.3.</span> <span class="nav-text">发布博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#换PC管理博客"><span class="nav-number">8.4.</span> <span class="nav-text">换PC管理博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考"><span class="nav-number">8.5.</span> <span class="nav-text">参考</span></a></li></ol></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#安装Node-js"><span class="nav-number">1.</span> <span class="nav-text">安装Node.js</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装Git"><span class="nav-number">2.</span> <span class="nav-text">安装Git</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建GitHub账户"><span class="nav-number">3.</span> <span class="nav-text">创建GitHub账户</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建GitHub仓库"><span class="nav-number">4.</span> <span class="nav-text">创建GitHub仓库</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置Hexo"><span class="nav-number">5.</span> <span class="nav-text">配置Hexo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置ssh-key"><span class="nav-number">6.</span> <span class="nav-text">配置ssh key</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置git信息"><span class="nav-number">7.</span> <span class="nav-text">配置git信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用Hexo管理博客"><span class="nav-number">8.</span> <span class="nav-text">使用Hexo管理博客</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#初始化博客"><span class="nav-number">8.1.</span> <span class="nav-text">初始化博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置博客"><span class="nav-number">8.2.</span> <span class="nav-text">配置博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#发布博客"><span class="nav-number">8.3.</span> <span class="nav-text">发布博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#换PC管理博客"><span class="nav-number">8.4.</span> <span class="nav-text">换PC管理博客</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#issues"><span class="nav-number">8.5.</span> <span class="nav-text">issues</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考"><span class="nav-number">8.6.</span> <span class="nav-text">参考</span></a></li></ol></li></ol></div>
             
 
           </div>
